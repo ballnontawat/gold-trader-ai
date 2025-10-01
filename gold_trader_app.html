@@ -57,10 +57,12 @@
         }
     </style>
         <script type="module">
-        import { createIcons, Search, Zap, TrendingUp, TrendingDown, Timer } from 'https://unpkg.com/lucide@latest';
+        import { createIcons, Zap, TrendingUp, TrendingDown, Timer, Layers } from 'https://unpkg.com/lucide@latest?module';
+        import { Search as SearchIcon } from 'https://unpkg.com/lucide@latest/dist/esm/icons/search.js'; 
+
         window.createLucideIcons = () => createIcons({ 
-            // Layers ถูกลบออกแล้ว
-            icons: { Search, Zap, TrendingUp, TrendingDown, Timer } 
+            // ใช้ SearchIcon แทน Search เพื่อแก้ปัญหาการ Export
+            icons: { Search: SearchIcon, Zap, TrendingUp, TrendingDown, Timer, Layers } 
         });
     </script>
 </head>
@@ -168,7 +170,6 @@
                 <p id="alert-message" class="text-gray-700"></p>
                 <button onclick="document.getElementById('custom-alert').classList.add('hidden')" class="mt-4 w-full py-2 px-4 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition">ตกลง</button>
             </div>
-            <button onclick="console.log('เปิด console เพื่อดู error');" class="mt-4 w-full py-2 px-4 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition hidden">ดู Console</button>
         </div>
 
     </div>
@@ -352,14 +353,12 @@
                             // Clean up reason text for display
                             const reasonText = (data.reason || 'No reason provided').split('\n')[0].substring(0, 150) + '...';
                             
-                            // EDIT: ใช้ไอคอน Layers ชั่วคราวแทน หากมีการลบออกจากการ Import 
-                            const layerIcon = '<i data-lucide="layers" class="w-5 h-5 inline mr-1"></i>';
+                            // ไอคอน Layers ที่ถูกนำเข้าอาจมีปัญหา เราจึงใช้ไอคอนอื่นแทนหากไม่มี signal
+                            const fallbackIconName = signalValue === 'N/A' ? 'layers' : 
+                                                     (signalValue.toUpperCase().includes('BUY') ? 'trending-up' : 'trending-down');
 
-                            const iconHtml = signalValue.toUpperCase().includes('BUY') ? 
-                                '<i data-lucide="trending-up" class="w-5 h-5 inline mr-1"></i>' : 
-                                (signalValue.toUpperCase().includes('SELL') ? 
-                                '<i data-lucide="trending-down" class="w-5 h-5 inline mr-1"></i>' : 
-                                layerIcon); // ใช้ icon Layers ชั่วคราว
+
+                            const iconHtml = `<i data-lucide="${fallbackIconName}" class="w-5 h-5 inline mr-1"></i>`;
 
                             historyHTML += `
                                 <div class="history-item">
