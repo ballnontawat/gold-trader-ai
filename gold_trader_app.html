@@ -211,13 +211,14 @@
 
         let finalFirebaseConfig = USER_FIREBASE_CONFIG;
         let finalApiKey = USER_GEMINI_API_KEY;
-
-        // Custom Alert Function (Replaces standard window.alert)
+        
+        // Custom Alert Function (Replaces standard window.alert)
         function customAlert(message) {
             document.getElementById('alert-message').textContent = message;
             document.getElementById('custom-alert').classList.remove('hidden');
         }
         window.customAlert = customAlert; // Make it globally accessible for other parts of the script
+
 
         if (Object.keys(finalFirebaseConfig).length > 0) {
             try {
@@ -233,6 +234,7 @@
             customAlert("ไม่พบการตั้งค่า Firebase กรุณาตรวจสอบโค้ด");
         }
 
+        // ใช้ projectId ที่ยืนยันแล้ว
         const dataPath = `/artifacts/${finalFirebaseConfig.projectId || appId}/public/data/gold_signals`;
 
 
@@ -248,13 +250,15 @@
             }
 
             // Attempt Sign-in
-            try {
-                await signInAnonymously(auth);
-            } catch (error) {
-                 console.error("Anonymous Auth Failed:", error);
-                 loadingMsg.textContent = `ข้อผิดพลาดการเข้าสู่ระบบ: ${error.code}. โปรดเปิด Anonymous Auth ใน Firebase Console`;
-                 loadingMsg.classList.remove('text-blue-500');
-                 loadingMsg.classList.add('text-red-500');
+            if (auth) {
+                try {
+                    await signInAnonymously(auth);
+                } catch (error) {
+                    console.error("Anonymous Auth Failed:", error);
+                    loadingMsg.textContent = `ข้อผิดพลาดการเข้าสู่ระบบ: ${error.code}. โปรดเปิด Anonymous Auth ใน Firebase Console`;
+                    loadingMsg.classList.remove('text-blue-500');
+                    loadingMsg.classList.add('text-red-500');
+                }
             }
 
             onAuthStateChanged(auth, (user) => {
@@ -331,11 +335,11 @@
                     
                     totalSignals++;
                     // Mock Win Rate Logic
-                    // Only count 'Buy' or 'Sell' as tradable signals
-                        if (data.signal && (data.signal.toUpperCase().includes('BUY') || data.signal.toUpperCase().includes('SELL'))) {
-                            // Mock win: Alternate signals for a simple mockup.
-                            if ((totalSignals % 2) === 0) winCount++; 
-                        }
+                    // Only count 'Buy' or 'Sell' as tradable signals
+                    if (data.signal && (data.signal.toUpperCase().includes('BUY') || data.signal.toUpperCase().includes('SELL'))) {
+                        // Mock win: Alternate signals for a simple mockup.
+                        if ((totalSignals % 2) === 0) winCount++; 
+                    }
                     
 
                     // 1.2 Generate HTML for History (Only the first 20 documents)
@@ -416,8 +420,6 @@
         const signalCard = document.getElementById('signal-output');
         const generateSignalBtn = document.getElementById('generate-button');
         const loadingIndicator = document.getElementById('loading-indicator');
-        // Re-querying elements here to match the new structure/names (though they were already defined above)
-        // It's safer to define them globally but since they are inside the module, we'll redefine them for clarity inside the function below.
         
         // Re-implementing fetchWithBackoff here to ensure it's in the final file
         async function fetchWithBackoff(url, options, maxRetries = 5) {
