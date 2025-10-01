@@ -3,676 +3,479 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini Gold Signal Bot (บอทสัญญาณเทรดทอง)</title>
-    <!-- Load Tailwind CSS for responsive styling -->
+    <title>Gold Trading AI (XAUUSD)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-        // Import Firebase modules for database and authentication
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, query, orderBy, limit, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // Use Debug log level for Firestore in development
-        setLogLevel('Debug');
-
-        // Global variables for Firebase Config (MUST be provided by the environment)
-        let firebaseConfig, appId, auth, db, userId = null;
-        
-        // --- Custom Tailwind Configuration (same as previous) ---
-        window.onload = function() {
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        fontFamily: {
-                            sans: ['Inter', 'Tahoma', 'sans-serif'],
-                        },
-                        colors: {
-                            'primary-gold': '#FFD700',
-                            'dark-bg': '#1E293B',
-                            'card-bg': '#334155',
-                        }
-                    }
-                }
-            };
-            // Initialize Firebase and start the process
-            initializeFirebaseAndAuth();
-        };
-
-        // ------------------------------------
-        // FIREBASE INITIALIZATION & AUTH
-        // ------------------------------------
-        async function initializeFirebaseAndAuth() {
-            try {
-                // Initialize Firebase App
-                if (typeof __firebase_config !== 'undefined') {
-                    // This section runs only in the Canvas environment
-                    firebaseConfig = JSON.parse(__firebase_config);
-                    appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                } else {
-                    // *** Fallback for GitHub Pages: Using YOUR provided config ***
-                    console.warn("Using custom Firebase config for GitHub Pages.");
-                    // Firebase Config Key for Project config-key-91147
-                    firebaseConfig = { 
-                        apiKey: "AIzaSyBtHWF0G-p_A6nmqp2vs-X8sYeJcgw31C4", // <--- Firebase Config Key
-                        authDomain: "config-key-91147.firebaseapp.com",
-                        projectId: "config-key-91147",
-                        storageBucket: "config-key-91147.firebasestorage.app",
-                        messagingSenderId: "829185427257",
-                        appId: "1:829185427257:web:884171fb68fd8c2082cae8",
-                        measurementId: "G-P70JTKGV13"
-                    }; 
-                    appId = firebaseConfig.projectId; // Use Project ID as App ID
-                }
-                
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-
-                // Sign in anonymously or with custom token (Essential for Firestore write rule)
-                if (typeof __initial_auth_token !== 'undefined') {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                // Listen for auth state change
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        // Start listening to data once authenticated
-                        setupSignalHistoryListener();
-                        // Generate a signal on load (optional: comment out if you don't want a signal on every load)
-                        // generateSignal(); 
-                    } else {
-                        // Not authenticated, use anonymous/random ID for public-like access simulation
-                        userId = crypto.randomUUID();
-                        setupSignalHistoryListener();
-                        // generateSignal();
-                    }
-                    document.getElementById('userIdDisplay').textContent = userId || 'กำลังโหลด...';
-                });
-
-            } catch (error) {
-                console.error("Firebase Initialization Failed:", error);
-                displayError(`การเชื่อมต่อ Firebase ล้มเหลว: ${error.message}`);
-            }
-        }
-
-        // ------------------------------------
-        // FIRESTORE FUNCTIONS
-        // ------------------------------------
-
-        // Helper to get the correct collection path (Public for collaborative stats)
-        function getSignalCollectionRef() {
-            // Using a public path so all users can see the aggregate statistics (Win Rate)
-            const collectionPath = `artifacts/${appId}/public/data/gold_signals`;
-            return collection(db, collectionPath);
-        }
-
-        // Save the generated signal to Firestore
-        async function saveSignalToDB(signalData) {
-            if (!db || !userId) {
-                console.error("Cannot save signal: DB or User ID not ready.");
-                return; 
-            }
-
-            // Use a unique ID based on timestamp and user to avoid conflicts
-            const docId = `${Date.now()}-${userId.substring(0, 8)}`; 
-            
-            try {
-                await setDoc(doc(getSignalCollectionRef(), docId), {
-                    ...signalData,
-                    userId: userId, // Record which user generated it
-                    timestamp: serverTimestamp(),
-                    isClosed: false, 
-                    result: 'PENDING' 
-                });
-                console.log("Signal saved successfully with ID:", docId);
-            } catch (error) {
-                console.error("Error saving signal to Firestore:", error);
-                // We show an error, but the signal generation might still be okay
-                displayError(`บันทึกสถิติล้มเหลว: โปรดตรวจสอบ Firebase Security Rules (แม้ว่าโค้ดจะถูกต้องแล้ว)`);
-            }
-        }
-
-        // Setup real-time listener for signal history and stats
-        function setupSignalHistoryListener() {
-            if (!db) return;
-
-            // Query: Get the last 100 signals
-            const signalsQuery = query(
-                getSignalCollectionRef(),
-                orderBy('timestamp', 'desc'),
-                limit(100)
-            );
-
-            onSnapshot(signalsQuery, (snapshot) => {
-                let totalSignals = 0;
-                let mockWins = 0; 
-                
-                snapshot.forEach(doc => {
-                    totalSignals++;
-                    // Mocking Win/Loss for front-end display realism
-                });
-
-                // Simple mock logic: Assumes a base 55% Win Rate with slight random variance
-                let winRate = 0;
-                if (totalSignals > 0) {
-                    // Generate a number of mock wins close to 55%
-                    mockWins = Math.round(totalSignals * 0.55 + Math.floor(Math.random() * 5));
-                    if (mockWins > totalSignals) mockWins = totalSignals - 1; 
-                    winRate = (mockWins / totalSignals) * 100;
-                }
-                
-                updateStatsUI(totalSignals, winRate);
-            }, (error) => {
-                console.error("Error listening to signals:", error);
-                // Do not display this as a fatal error, as signal generation still works
-            });
-        }
-
-        // Update the statistics section
-        function updateStatsUI(totalSignals, winRate) {
-            document.getElementById('totalSignals').textContent = totalSignals.toLocaleString();
-            document.getElementById('winRate').textContent = `${winRate.toFixed(0)}%`;
-            // userIdDisplay is updated in onAuthStateChanged
-        }
-
-        // ------------------------------------
-        // UI & API LOGIC (Unchanged, using the fixed API Key)
-        // ------------------------------------
-        
-        // Gemini API configuration
-        const MODEL_NAME = "gemini-2.5-flash-preview-05-20";
-        // *** สำคัญ: กรุณาใส่ Gemini API Key ของคุณที่นี่ ***
-        const apiKey = "AIzaSyD1a62baK2DTiOjtRrRasFuPgGEvOSNPS8"; 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
-
-        // UI Element References (unchanged)
-        const signalCard = document.getElementById('signalCard');
-        const generateSignalBtn = document.getElementById('generateSignalBtn');
-        const buttonText = document.getElementById('buttonText');
-        const loadingIndicator = document.getElementById('loadingIndicator');
-        const generateSummaryBtn = document.getElementById('generateSummaryBtn');
-        const summaryButtonText = document.getElementById('summaryButtonText');
-        const summaryLoadingIndicator = document.getElementById('summaryLoadingIndicator');
-        const marketSummaryCard = document.getElementById('marketSummaryCard');
-        const marketSummaryContent = document.getElementById('marketSummaryContent');
-
-        const signalDirection = document.getElementById('signalDirection');
-        const signalEntry = document.getElementById('signalEntry');
-        const signalTP = document.getElementById('signalTP');
-        const signalSL = document.getElementById('signalSL');
-        const signalReason = document.getElementById('signalReason');
-        const timeframeSelect = document.getElementById('timeframeSelect');
-
-        const sourceContainer = document.getElementById('sourceContainer');
-        const sourceList = document.getElementById('sourceList');
-        const errorMessage = document.getElementById('errorMessage');
-
-        // Function to display error message
-        function displayError(message, isSummary = false) {
-            errorMessage.textContent = `เกิดข้อผิดพลาด: ${message}`;
-            errorMessage.classList.remove('hidden');
-            if (isSummary) {
-                marketSummaryCard.classList.add('hidden');
-            } else {
-                signalCard.classList.add('hidden');
-            }
-        }
-
-        // Function to handle API call and retries with exponential backoff
-        async function fetchWithBackoff(url, options, maxRetries = 5) {
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (response.ok) {
-                        return response;
-                    } else if (response.status === 429 || response.status >= 500) {
-                        // Retry for rate limiting (429) or server errors (5xx)
-                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
-                        console.warn(`Request failed with status ${response.status}. Retrying in ${delay / 1000}s...`);
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                        continue;
-                    } else {
-                        // Non-retryable error
-                        const errorData = await response.json();
-                        throw new Error(`API Error ${response.status}: ${errorData.error.message}`);
-                    }
-                } catch (error) {
-                    if (i === maxRetries - 1) {
-                        throw error;
-                    }
-                    // Continue loop for retry
-                }
-            }
-        }
-
-        // ------------------------------------
-        // CORE FEATURE 1: Generate Trading Signal
-        // ------------------------------------
-        window.generateSignal = async function() {
-            // Check if Gemini API Key is set
-            if (apiKey === "YOUR_GEMINI_API_KEY_HERE" || !apiKey) {
-                displayError("โปรดใส่ Gemini API Key ของคุณในโค้ด (บรรทัดที่ 166)");
-                return;
-            }
-
-            // Reset UI
-            errorMessage.classList.add('hidden');
-            signalCard.classList.add('hidden');
-            sourceList.innerHTML = '';
-            sourceContainer.classList.add('hidden');
-            signalDirection.className = 'text-2xl font-black mt-1 p-1 rounded'; // Reset classes for new color
-
-            // Get selected timeframe
-            const selectedTimeframe = timeframeSelect.value;
-            document.getElementById('signalTimeframe').textContent = `กรอบเวลา: ${selectedTimeframe}`;
-
-            // Set loading state
-            generateSignalBtn.disabled = true;
-            buttonText.classList.add('hidden');
-            loadingIndicator.classList.remove('hidden');
-
-            // --- SYSTEM PROMPT for Signal ---
-            const systemPrompt = `
-                Act as a highly reliable gold trading signal provider for XAUUSD.
-                You must analyze current global economic news, USD performance, and technical sentiment to provide a concise, actionable signal based on the ${selectedTimeframe} timeframe.
-                Your response must be in Thai and must strictly adhere to the following 6-line, easily parsable format:
-
-                SIGNAL: [ซื้อ/ขาย/รอ (BUY/SELL/WAIT)]
-                TIMEFRAME: [กรอบเวลา เช่น H4/Daily]
-                ENTRY: [ราคาในหน่วย USD เช่น 2350.50]
-                TP: [ราคาในหน่วย USD เช่น 2380.00]
-                SL: [ราคาในหน่วย USD เช่น 2335.50]
-                REASON: [1-2 ประโยควิเคราะห์ตามข้อมูลเรียลไทม์]
-            `;
-            
-            const userQuery = `โปรดให้สัญญาณเทรดทองคำ (XAUUSD) ล่าสุดสำหรับกรอบเวลา ${selectedTimeframe} พร้อมราคาเข้า, TP, SL, และเหตุผลการวิเคราะห์`;
-
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                tools: [{ "google_search": {} }],
-                systemInstruction: {
-                    parts: [{ text: systemPrompt }]
-                },
-                generationConfig: {
-                    temperature: 0.1
-                }
-            };
-
-            try {
-                const response = await fetchWithBackoff(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-                const candidate = result.candidates?.[0];
-
-                if (!candidate || !candidate.content?.parts?.[0]?.text) {
-                    throw new Error("ไม่สามารถสร้างสัญญาณได้ โปรดลองอีกครั้ง");
-                }
-
-                const rawText = candidate.content.parts[0].text.trim();
-                
-                // 1. Parse the structured text output
-                const lines = rawText.split('\n').map(line => line.trim());
-                let signal = {
-                    DIRECTION: 'WAIT',
-                    TIMEFRAME: selectedTimeframe,
-                    ENTRY: '-',
-                    TP: '-',
-                    SL: '-',
-                    REASON: 'ไม่พบเหตุผลการวิเคราะห์ที่ชัดเจน'
-                };
-
-                lines.forEach(line => {
-                    if (line.startsWith('SIGNAL:')) {
-                        signal.DIRECTION = line.split(':')[1]?.trim() || 'WAIT';
-                    } else if (line.startsWith('TIMEFRAME:')) {
-                        const tf = line.split(':')[1]?.trim();
-                        if (tf) {
-                            signal.TIMEFRAME = tf.toUpperCase();
-                        }
-                    } else if (line.startsWith('ENTRY:')) {
-                        signal.ENTRY = line.split(':')[1]?.trim() || '-';
-                    } else if (line.startsWith('TP:')) {
-                        signal.TP = line.split(':')[1]?.trim() || '-';
-                    } else if (line.startsWith('SL:')) {
-                        signal.SL = line.split(':')[1]?.trim() || '-';
-                    } else if (line.startsWith('REASON:')) {
-                        signal.REASON = line.substring(line.indexOf(':') + 1).trim() || signal.REASON;
-                    }
-                });
-
-                // 2. Update UI
-                signalCard.classList.remove('hidden');
-
-                // Update Direction and apply color styling
-                signalDirection.textContent = signal.DIRECTION;
-                if (signal.DIRECTION.includes('ซื้อ') || signal.DIRECTION.toUpperCase().includes('BUY')) {
-                    signalDirection.classList.add('buy-signal', 'text-white');
-                } else if (signal.DIRECTION.includes('ขาย') || signal.DIRECTION.toUpperCase().includes('SELL')) {
-                    signalDirection.classList.add('sell-signal', 'text-white');
-                } else {
-                    signalDirection.classList.add('wait-signal', 'text-dark-bg');
-                }
-                
-                document.getElementById('signalTimeframe').textContent = `กรอบเวลา: ${signal.TIMEFRAME}`;
-
-                // Display prices, ensure they are clean
-                signalEntry.textContent = signal.ENTRY.replace('USD', '').trim();
-                signalTP.textContent = signal.TP.replace('USD', '').trim();
-                signalSL.textContent = signal.SL.replace('USD', '').trim();
-                signalReason.textContent = signal.REASON;
-
-                // 3. Extract and display grounding sources
-                let sources = [];
-                const groundingMetadata = candidate.groundingMetadata;
-                if (groundingMetadata && groundingMetadata.groundingAttributions) {
-                    sources = groundingMetadata.groundingAttributions
-                        .map(attribution => ({
-                            uri: attribution.web?.uri,
-                            title: attribution.web?.title,
-                        }))
-                        .filter(source => source.uri && source.title);
-                }
-
-                if (sources.length > 0) {
-                    sourceContainer.classList.remove('hidden');
-                    sourceList.innerHTML = ''; 
-                    sources.forEach(source => {
-                        const li = document.createElement('li');
-                        li.innerHTML = `<a href="${source.uri}" target="_blank" class="hover:text-primary-gold transition duration-200 truncate block">${source.title}</a>`;
-                        sourceList.appendChild(li);
-                    });
-                } else {
-                    sourceContainer.classList.add('hidden');
-                }
-
-                // 4. Save the signal to Firestore for backtesting (Requires all fields)
-                saveSignalToDB({
-                    direction: signal.DIRECTION,
-                    timeframe: signal.TIMEFRAME,
-                    entry: signal.ENTRY.replace('USD', '').trim(),
-                    tp: signal.TP.replace('USD', '').trim(),
-                    sl: signal.SL.replace('USD', '').trim(),
-                    reason: signal.REASON
-                });
-
-            } catch (error) {
-                console.error("Gemini API Call Failed (Signal):", error);
-                displayError(error.message || "มีข้อผิดพลาดในการเชื่อมต่อหรือวิเคราะห์ข้อมูลสัญญาณ");
-            } finally {
-                // Remove loading state
-                generateSignalBtn.disabled = false;
-                buttonText.classList.remove('hidden');
-                loadingIndicator.classList.add('hidden');
-            }
-        }
-
-        // ------------------------------------
-        // CORE FEATURE 2: Market Summary & Strategy (Unchanged)
-        // ------------------------------------
-        window.generateSummary = async function() {
-            // Check if Gemini API Key is set
-            if (apiKey === "YOUR_GEMINI_API_KEY_HERE" || !apiKey) {
-                displayError("โปรดใส่ Gemini API Key ของคุณในโค้ด (บรรทัดที่ 166)");
-                return;
-            }
-
-            // Reset UI
-            marketSummaryCard.classList.add('hidden');
-            errorMessage.classList.add('hidden');
-            marketSummaryContent.innerHTML = '';
-
-            // Set loading state
-            generateSummaryBtn.disabled = true;
-            summaryButtonText.classList.add('hidden');
-            summaryLoadingIndicator.classList.remove('hidden');
-
-            // --- SYSTEM PROMPT for Summary ---
-            const systemPrompt = `
-                Act as a chief market strategist specializing in precious metals. Provide a comprehensive, easy-to-read daily market overview for XAUUSD (Gold). The analysis must include:
-                1. Current Market Sentiment (Bullish/Bearish/Neutral).
-                2. Key Driving Factors (Economic data, USD strength, or geopolitical risks).
-                3. A general Strategic Approach (e.g., Range trading, Trend following, or Caution).
-
-                The response must be in Thai and should not be a trading signal (no ENTRY, TP, SL). Structure the response clearly with markdown formatting (e.g., **heading** and bullet lists).
-            `;
-            
-            const userQuery = "โปรดสรุปภาพรวมตลาดทองคำ XAUUSD รายวัน และระบุกลยุทธ์การซื้อขายโดยรวม";
-
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                tools: [{ "google_search": {} }],
-                systemInstruction: {
-                    parts: [{ text: systemPrompt }]
-                },
-                generationConfig: {
-                    temperature: 0.2
-                }
-            };
-
-            try {
-                const response = await fetchWithBackoff(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-                const candidate = result.candidates?.[0];
-
-                if (!candidate || !candidate.content?.parts?.[0]?.text) {
-                    throw new Error("ไม่สามารถสร้างสรุปตลาดได้ โปรดลองอีกครั้ง");
-                }
-
-                const summaryText = candidate.content.parts[0].text.trim();
-                
-                // Convert the markdown output to simple HTML structure for display
-                const htmlContent = summaryText
-                    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary-gold">$1</strong>') // Bold text
-                    .replace(/\n\n/g, '</p><p>') // Double newlines to paragraphs
-                    .replace(/\n/g, '<br>') // Single newlines to breaks
-                    .replace(/<p><br>/g, '<p>'); // Clean up stray <br> after <p>
-
-                marketSummaryContent.innerHTML = `<p>${htmlContent}</p>`;
-                marketSummaryCard.classList.remove('hidden');
-
-            } catch (error) {
-                console.error("Summary API Call Failed:", error);
-                displayError(error.message || "มีข้อผิดพลาดในการเชื่อมต่อหรือวิเคราะห์ข้อมูลสำหรับสรุปตลาด", true);
-            } finally {
-                // Remove loading state
-                generateSummaryBtn.disabled = false;
-                summaryButtonText.classList.remove('hidden');
-                summaryLoadingIndicator.classList.add('hidden');
-            }
-        }
-    </script>
-
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
-            background-color: #0F172A; /* Slate 900 */
-            color: #E2E8F0; /* Slate 200 */
             font-family: 'Inter', sans-serif;
-            display: flex;
-            justify-content: center;
-            padding: 20px;
+            background-color: #f7fafc;
         }
-        .signal-card {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        .card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
         }
-        .buy-signal {
-            background-color: #10B981; /* Green 500 */
-            color: white;
-            padding: 4px 8px;
-            border-radius: 6px;
+        .signal-buy {
+            color: #059669; /* emerald-600 */
+            font-weight: 700;
         }
-        .sell-signal {
-            background-color: #EF4444; /* Red 500 */
-            color: white;
-            padding: 4px 8px;
-            border-radius: 6px;
+        .signal-sell {
+            color: #ef4444; /* red-500 */
+            font-weight: 700;
         }
-        .wait-signal {
-            background-color: #FACC15; /* Yellow 400 */
-            color: #1E293B;
-            padding: 4px 8px;
-            border-radius: 6px;
+        .loader {
+            border-top-color: #3b82f6;
+            -webkit-animation: spin 1s ease-in-out infinite;
+            animation: spin 1s ease-in-out infinite;
         }
-        /* Custom Loading Indicator */
-        .loading-animation {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid #FFD700; /* Gold */
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
+        @-webkit-keyframes spin {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .history-item {
+            border: 1px solid #e5e7eb;
+            padding: 0.75rem;
+            border-radius: 8px;
+            background-color: #f9fafb;
+        }
     </style>
+    <!-- Lucide Icons for aesthetic -->
+    <script type="module">
+        import { createIcons, Search, Zap, TrendingUp, TrendingDown, Clock, Layers } from 'https://unpkg.com/lucide@latest';
+        createIcons({ icons: { Search, Zap, TrendingUp, TrendingDown, Clock, Layers } });
+    </script>
+</head>
+<body class="p-4 md:p-8 min-h-screen bg-gray-100">
 
-    <!-- UI: Add the Performance Tracker Section -->
-    <div class="w-full max-w-lg">
+    <div class="max-w-4xl mx-auto">
         <header class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-primary-gold mb-2">
-                <span class="text-5xl">G</span>old <span class="text-5xl">T</span>rader <span class="text-5xl">A</span>I
+            <h1 class="text-3xl font-bold text-gray-900 flex items-center justify-center">
+                <i data-lucide="zap" class="w-6 h-6 mr-2 text-yellow-500"></i>
+                Gold Trader AI (XAUUSD)
             </h1>
-            <p class="text-lg text-slate-300">บอทวิเคราะห์และสร้างสัญญาณเทรดทองคำ (XAUUSD)</p>
-            <p class="text-sm text-slate-500 mt-1">ขับเคลื่อนโดย Gemini พร้อมข้อมูลเรียลไทม์จาก Google Search</p>
+            <p class="text-gray-600 mt-1">วิเคราะห์ตลาดทองคำด้วย Gemini</p>
         </header>
 
-        <!-- New: Performance Tracker -->
-        <div class="signal-card bg-card-bg rounded-xl p-6 mb-6">
-            <h2 class="text-xl font-bold border-b pb-3 mb-4 text-primary-gold flex justify-between items-center">
-                📊 สถิติประสิทธิภาพรวม (Backtest Mock)
-            </h2>
-            <div class="grid grid-cols-2 gap-4 text-center">
-                <div>
-                    <p class="text-slate-400 text-sm">จำนวนสัญญาณที่สร้าง</p>
-                    <p id="totalSignals" class="text-3xl font-bold mt-1 text-primary-gold">0</p>
-                </div>
-                <div>
-                    <p class="text-slate-400 text-sm">อัตราความแม่นยำ (Win Rate)</p>
-                    <p id="winRate" class="text-3xl font-bold mt-1 text-green-500">0%</p>
-                </div>
+        <!-- Configuration -->
+        <div id="config-settings" class="card mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">การตั้งค่าและการเข้าสู่ระบบ</h2>
+            <div id="auth-status" class="text-sm text-center p-3 rounded-lg border">
+                <p id="loading-msg" class="text-blue-500">กำลังเชื่อมต่อกับ Firebase...</p>
+                <p id="user-info" class="hidden text-gray-700">User ID: <span id="user-id-display" class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded"></span></p>
             </div>
-            <p class="text-xs text-slate-500 mt-4 italic text-center">
-                *สถิตินี้เป็นค่าจำลอง (Mock) ที่อิงตามสัญญาณที่ถูกสร้างโดยผู้ใช้ทุกคนในแอปฯ นี้. (User ID: <span id="userIdDisplay" class="font-mono text-xs">กำลังโหลด...</span>)
+            <p id="api-key-warning" class="mt-4 text-center text-red-500 text-sm hidden">
+                ⚠️ โปรดกำหนดค่า __gemini_api_key ในโค้ดเพื่อให้ AI ทำงานได้!
             </p>
         </div>
 
+        <!-- Signal Generation -->
+        <div id="generator-card" class="card mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">สร้างสัญญาณเทรด</h2>
 
-        <main class="space-y-6">
-            <!-- Timeframe Selection (rest of UI is the same) -->
-            <div class="flex items-center justify-center space-x-3 mb-4">
-                <label for="timeframeSelect" class="text-slate-300 font-medium text-sm">เลือก Timeframe:</label>
-                <select id="timeframeSelect" class="bg-card-bg text-primary-gold border border-slate-600 rounded-lg p-2 focus:ring-primary-gold focus:border-primary-gold">
-                    <option value="M5">M5 (5 นาที)</option>
-                    <option value="M15">M15 (15 นาที)</option>
-                    <option value="M30">M30 (30 นาที)</option>
-                    <option value="H1">H1 (1 ชั่วโมง)</option>
-                    <option value="H4" selected>H4 (4 ชั่วโมง)</option>
-                    <option value="D1">D1 (รายวัน)</option>
-                </select>
-            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="timeframe" class="block text-sm font-medium text-gray-700">Timeframe:</label>
+                    <select id="timeframe" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
+                        <option value="M5">M5 (5 นาที)</option>
+                        <option value="M15">M15 (15 นาที)</option>
+                        <option value="H1" selected>H1 (1 ชั่วโมง)</option>
+                        <option value="H4">H4 (4 ชั่วโมง)</option>
+                        <option value="D1">D1 (1 วัน)</option>
+                    </select>
+                </div>
 
-            <!-- Signal Generation Button -->
-            <div class="text-center">
-                <button id="generateSignalBtn" onclick="generateSignal()"
-                    class="w-full sm:w-auto px-8 py-3 bg-primary-gold text-dark-bg font-extrabold rounded-xl transition duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-                    <span id="buttonText">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                        สร้างสัญญาณเทรดทองคำใหม่
-                    </span>
-                    <div id="loadingIndicator" class="loading-animation hidden"></div>
+                <button id="generate-button" class="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition ease-in-out duration-150">
+                    <i data-lucide="search" class="w-5 h-5 mr-2"></i>
+                    สร้างสัญญาณ XAUUSD
                 </button>
             </div>
 
-            <!-- Market Summary Button -->
-            <div class="text-center mt-4">
-                <button id="generateSummaryBtn" onclick="generateSummary()"
-                    class="w-full sm:w-auto px-8 py-3 bg-slate-700 text-primary-gold font-extrabold rounded-xl transition duration-300 transform hover:bg-slate-600 active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-                    <span id="summaryButtonText">
-                        ✨ สรุปตลาด & กลยุทธ์รายวัน
-                    </span>
-                    <div id="summaryLoadingIndicator" class="loading-animation hidden"></div>
-                </button>
-            </div>
-
-
-            <!-- Signal Display Card -->
-            <div id="signalCard" class="signal-card bg-card-bg rounded-xl p-6 hidden">
-                <h2 class="text-2xl font-bold border-b pb-3 mb-4 flex justify-between items-center text-primary-gold">
-                    <span>สัญญาณการเทรดล่าสุด</span>
-                    <!-- Timeframe Display -->
-                    <span id="signalTimeframe" class="text-base font-semibold px-3 py-1 bg-slate-700 rounded-full text-slate-300">กรอบเวลา: -</span>
-                </h2>
-
-                <!-- Layout adapted for mobile first: two columns on larger screens -->
-                <div class="grid grid-cols-2 gap-4 mb-6">
-                    <!-- Signal Type -->
-                    <div class="p-3 rounded-lg border border-slate-600">
-                        <p class="text-slate-400 text-sm">ทิศทางสัญญาณ (SIGNAL)</p>
-                        <p id="signalDirection" class="text-2xl font-black mt-1"></p>
-                    </div>
-
-                    <!-- Entry Price -->
-                    <div class="p-3 rounded-lg border border-slate-600">
-                        <p class="text-slate-400 text-sm">ราคาเข้า (ENTRY)</p>
-                        <p id="signalEntry" class="text-xl font-semibold mt-1 text-slate-200"></p>
-                    </div>
-
-                    <!-- Target Price -->
-                    <div class="p-3 rounded-lg border border-slate-600">
-                        <p class="text-slate-400 text-sm">เป้าหมายกำไร (TP)</p>
-                        <p id="signalTP" class="text-xl font-semibold mt-1 text-green-400"></p>
-                    </div>
-
-                    <!-- Stop Loss -->
-                    <div class="p-3 rounded-lg border border-slate-600">
-                        <p class="text-slate-400 text-sm">หยุดขาดทุน (SL)</p>
-                        <p id="signalSL" class="text-xl font-semibold mt-1 text-red-400"></p>
-                    </div>
+            <div id="signal-output" class="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50 hidden">
+                <p class="text-lg font-semibold mb-2 text-gray-800">ผลการวิเคราะห์:</p>
+                <div id="loading-indicator" class="flex items-center justify-center space-x-2 hidden">
+                    <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-6 w-6"></div>
+                    <span class="text-blue-500">กำลังเรียกใช้ AI...</span>
                 </div>
-
-                <!-- Analysis/Reason -->
-                <div class="bg-slate-700 p-4 rounded-lg">
-                    <p class="text-sm font-semibold text-primary-gold mb-2">เหตุผลการวิเคราะห์ (REASON)</p>
-                    <p id="signalReason" class="text-base text-slate-300 italic"></p>
-                </div>
-
-                <!-- Sources/Grounding -->
-                <div id="sourceContainer" class="mt-4 border-t pt-4 border-slate-700 hidden">
-                    <p class="text-xs font-semibold text-slate-400 mb-1">ข้อมูลอ้างอิง:</p>
-                    <ul id="sourceList" class="text-xs text-slate-500 space-y-1">
-                        <!-- Sources will be injected here -->
-                    </ul>
+                <div id="signal-content" class="text-gray-700 space-y-3">
+                    <!-- AI generated content will be injected here -->
                 </div>
             </div>
+        </div>
 
-            <!-- Market Summary Display Card -->
-            <div id="marketSummaryCard" class="signal-card bg-card-bg rounded-xl p-6 hidden">
-                <h2 class="text-2xl font-bold border-b pb-3 mb-4 text-primary-gold">
-                    สรุปภาพรวมตลาดทองคำรายวัน (Gemini Analysis)
-                </h2>
-                <div id="marketSummaryContent" class="text-base text-slate-300 space-y-3">
-                    <!-- Summary content will be injected here -->
+        <!-- Performance Tracking -->
+        <div id="performance-card" class="card mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">การติดตามประสิทธิภาพ (รวม)</h2>
+            <div class="grid grid-cols-2 gap-4 text-center">
+                <div class="p-4 bg-blue-50 rounded-lg">
+                    <p class="text-2xl font-bold text-blue-600" id="signal-count-display">0</p>
+                    <p class="text-sm text-gray-500">จำนวนสัญญาณที่สร้าง</p>
+                </div>
+                <div class="p-4 bg-purple-50 rounded-lg">
+                    <p class="text-2xl font-bold text-purple-600" id="win-rate-display">0%</p>
+                    <p class="text-sm text-gray-500">Win Rate Mock (จำลอง)</p>
                 </div>
             </div>
-
-            <!-- Error Message -->
-            <div id="errorMessage" class="hidden p-4 bg-red-800/30 text-red-400 rounded-xl border border-red-700 text-center">
-                <!-- Error message will be displayed here -->
+        </div>
+        
+        <!-- NEW: Signal History Display -->
+        <div id="history-card" class="card mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">ประวัติสัญญาณล่าสุด (20 รายการ)</h2>
+            <div id="signal-history-container" class="space-y-3">
+                <p id="loading-history" class="text-center text-gray-500">กำลังโหลดประวัติสัญญาณ...</p>
             </div>
-        </main>
+        </div>
+
+        <!-- Message Box for Alert replacement -->
+        <div id="custom-alert" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full">
+                <h3 class="text-lg font-bold mb-3 text-red-600">ข้อผิดพลาด</h3>
+                <p id="alert-message" class="text-gray-700"></p>
+                <button onclick="document.getElementById('custom-alert').classList.add('hidden')" class="mt-4 w-full py-2 px-4 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition">ตกลง</button>
+            </div>
+        </div>
+
     </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            onSnapshot, 
+            collection, 
+            query, 
+            orderBy, 
+            limit, 
+            serverTimestamp,
+            where,
+            getDocs 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase Configuration and Tools
+        // Note: These variables (__app_id, __firebase_config, __initial_auth_token) are provided by the canvas environment.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { /* Mock config */ };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const apiKey = typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : '';
+
+        // UI Utility
+        function customAlert(message) {
+            document.getElementById('alert-message').textContent = message;
+            document.getElementById('custom-alert').classList.remove('hidden');
+        }
+
+        // Firebase Initialization and Auth
+        let db;
+        let auth;
+        let userId = null;
+
+        // --- START: Firebase Config (User-provided) ---
+        // *** IMPORTANT: The actual configuration for GitHub Pages must be set here manually by the user ***
+        // Example structure used in the conversation:
+        const USER_FIREBASE_CONFIG = {
+             apiKey: "AIzaSyBtHWF0G-p_A6nmqp2vs-X8sYeJcgw31C4",
+             authDomain: "config-key-91147.firebaseapp.com",
+             projectId: "config-key-91147",
+             storageBucket: "config-key-91147.firebasestorage.app",
+             messagingSenderId: "829185427257",
+             appId: "1:829185427257:web:884171fb68fd8c2082cae8",
+             measurementId: "G-P70JTKGV13"
+        };
+        // *** The Gemini API Key must also be set manually by the user ***
+        const USER_GEMINI_API_KEY = "AIzaSyD1a62baK2DTiOjtRrRasFuPgGEvOSNPS8";
+        // --- END: Firebase Config (User-provided) ---
+
+        let finalFirebaseConfig = Object.keys(firebaseConfig).length > 0 ? firebaseConfig : USER_FIREBASE_CONFIG;
+        let finalApiKey = apiKey || USER_GEMINI_API_KEY;
+
+        if (Object.keys(finalFirebaseConfig).length > 0) {
+            const app = initializeApp(finalFirebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            setLogLevel('Debug');
+        } else {
+            customAlert("ไม่พบการตั้งค่า Firebase กรุณาตรวจสอบโค้ด");
+        }
+
+        const dataPath = `/artifacts/${appId}/public/data/signals`;
+
+        // Authentication and Initialization Setup
+        async function setupAuthAndListeners() {
+            const loadingMsg = document.getElementById('loading-msg');
+            const userInfo = document.getElementById('user-info');
+            const userIdDisplay = document.getElementById('user-id-display');
+            
+            // Check for API Key
+            if (!finalApiKey) {
+                document.getElementById('api-key-warning').classList.remove('hidden');
+            }
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    loadingMsg.classList.add('hidden');
+                    userIdDisplay.textContent = userId;
+                    userInfo.classList.remove('hidden');
+                    
+                    // Start listening to data once authenticated
+                    if (db) {
+                        setupPerformanceListener(db, userId);
+                    }
+                } else {
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Authentication Error:", error);
+                        loadingMsg.textContent = `ข้อผิดพลาดการเข้าสู่ระบบ: ${error.code}`;
+                        loadingMsg.classList.remove('text-blue-500');
+                        loadingMsg.classList.add('text-red-500');
+                    }
+                }
+            });
+        }
+
+        // --- UPDATED: Real-time Listener for Performance and History (Limit 20) ---
+        function setupPerformanceListener(db, currentUserId) {
+            const signalCountElement = document.getElementById('signal-count-display');
+            const winRateElement = document.getElementById('win-rate-display');
+            const historyContainer = document.getElementById('signal-history-container');
+            
+            // Query for all public signals (needed for overall performance stats)
+            // Order by timestamp desc to ensure the latest are at the top for history display
+            const q = query(
+                collection(db, dataPath),
+                orderBy('timestamp', 'desc') 
+            );
+
+            onSnapshot(q, (snapshot) => {
+                let totalSignals = 0;
+                let winCount = 0;
+                let historyHTML = '';
+                
+                // Clear loading message
+                document.getElementById('loading-history').style.display = 'none';
+
+                // --- 1. Aggregate Statistics and History HTML Generation ---
+                snapshot.forEach((doc, index) => {
+                    const data = doc.data();
+                    
+                    // 1.1 Aggregation for Performance Tracking
+                    totalSignals++;
+                    // Mock Win Rate Logic (simplified for demonstration)
+                    // For example: Win if the signal is 'Buy' and the user's ID starts with 'a' or 'z', or 'Sell' otherwise.
+                    if (data.signal === 'Buy') {
+                        // 50% chance of a mock win for 'Buy'
+                        if ((totalSignals % 2) === 0) winCount++; 
+                    } else if (data.signal === 'Sell') {
+                         // 50% chance of a mock win for 'Sell'
+                         if ((totalSignals % 2) === 1) winCount++; 
+                    }
+
+                    // 1.2 Generate HTML for History (UPDATED: only the first 20 documents)
+                    if (index < 20) {
+                        const signalClass = data.signal === 'Buy' ? 'signal-buy' : 'signal-sell';
+                        const time = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' }) : 'N/A';
+                        
+                        // Clean up reason text for display
+                        const reasonText = data.reason.split('\n')[0].substring(0, 150) + '...';
+
+                        historyHTML += `
+                            <div class="history-item">
+                                <div class="flex items-center justify-between text-sm">
+                                    <div class="flex items-center space-x-2">
+                                        <i data-lucide="clock" class="w-4 h-4 text-gray-500"></i>
+                                        <span class="text-gray-500">${time}</span>
+                                    </div>
+                                    <span class="font-semibold text-xs px-2 py-0.5 rounded-full bg-gray-200">${data.timeframe}</span>
+                                </div>
+                                <div class="mt-2">
+                                    <p class="text-xl ${signalClass}">
+                                        ${data.signal === 'Buy' ? '<i data-lucide="trending-up" class="w-5 h-5 inline mr-1"></i>' : '<i data-lucide="trending-down" class="w-5 h-5 inline mr-1"></i>'}
+                                        ${data.signal}
+                                    </p>
+                                    <p class="text-xs text-gray-600 mt-1">${reasonText}</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+
+                // --- 2. Update UI Elements ---
+                
+                // 2.1 Update Performance Metrics
+                signalCountElement.textContent = totalSignals;
+                let winRate = totalSignals > 0 ? ((winCount / totalSignals) * 100).toFixed(1) : 0;
+                winRateElement.textContent = `${winRate}%`;
+                
+                // 2.2 Update History Display
+                historyContainer.innerHTML = historyHTML || '<p class="text-center text-gray-500 p-4">ยังไม่มีสัญญาณถูกสร้าง</p>';
+                
+                // Re-initialize Lucide icons for the new HTML content
+                import { createIcons, Search, Zap, TrendingUp, TrendingDown, Clock, Layers } from 'https://unpkg.com/lucide@latest';
+                createIcons({ icons: { Search, Zap, TrendingUp, TrendingDown, Clock, Layers } });
+
+            }, (error) => {
+                console.error("Firestore Listener Error:", error);
+                customAlert(`ข้อผิดพลาดในการดึงข้อมูล: ${error.message}`);
+                document.getElementById('loading-history').textContent = 'ไม่สามารถโหลดประวัติได้';
+            });
+        }
+
+        // Gemini API Call
+        async function generateSignal(timeframe) {
+            const userPrompt = `You are a professional gold (XAUUSD) market analyst. Analyze the current market condition for XAUUSD at the ${timeframe} timeframe based on technical indicators (like RSI, MACD, Moving Averages) and current market sentiment. Provide a clear and concise trading signal.
+            
+            Your output MUST be in a single JSON block formatted exactly as follows:
+            {
+              "signal": "[Buy/Sell/Hold]",
+              "reason": "Explain the full technical and sentiment reasons for the signal in 3-5 sentences in Thai."
+            }`;
+            
+            if (!finalApiKey) {
+                 customAlert("กรุณากำหนด API Key ก่อนเริ่มใช้งาน.");
+                 return { signal: 'Hold', reason: 'ไม่สามารถเรียกใช้ AI ได้เนื่องจากขาด API Key' };
+            }
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${finalApiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: "Act as a specialized XAUUSD market analyst." }]
+                }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                // Extract JSON block from markdown
+                const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+                let signalData = {};
+                
+                if (jsonMatch && jsonMatch[1]) {
+                    signalData = JSON.parse(jsonMatch[1]);
+                } else {
+                    // Fallback if not perfectly wrapped
+                    signalData = { signal: 'Hold', reason: text.substring(0, 500) + '... (รูปแบบคำตอบไม่ถูกต้อง)' };
+                }
+
+                return signalData;
+
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                customAlert(`เกิดข้อผิดพลาดในการเรียก AI: ${error.message}`);
+                return { signal: 'Hold', reason: `เกิดข้อผิดพลาดในการสื่อสารกับ AI: ${error.message}` };
+            }
+        }
+
+        // Display Signal and Save to Firestore
+        async function displayAndSaveSignal(timeframe, signalData) {
+            const outputDiv = document.getElementById('signal-output');
+            const contentDiv = document.getElementById('signal-content');
+            
+            const signalClass = signalData.signal === 'Buy' ? 'signal-buy' : (signalData.signal === 'Sell' ? 'signal-sell' : 'text-gray-700');
+            const iconHtml = signalData.signal === 'Buy' ? 
+                '<i data-lucide="trending-up" class="w-6 h-6 inline mr-2"></i>' : 
+                (signalData.signal === 'Sell' ? 
+                '<i data-lucide="trending-down" class="w-6 h-6 inline mr-2"></i>' : 
+                '<i data-lucide="layers" class="w-6 h-6 inline mr-2"></i>');
+
+            contentDiv.innerHTML = `
+                <div class="text-center p-3 rounded-lg border border-gray-200">
+                    <p class="text-sm font-medium text-gray-500">Timeframe: ${timeframe}</p>
+                    <p class="text-3xl font-bold mt-1 ${signalClass}">
+                        ${iconHtml}
+                        ${signalData.signal}
+                    </p>
+                </div>
+                <div class="mt-4">
+                    <p class="font-semibold text-gray-800">เหตุผล:</p>
+                    <p class="whitespace-pre-wrap text-sm">${signalData.reason}</p>
+                </div>
+            `;
+            outputDiv.classList.remove('hidden');
+
+            // Re-initialize Lucide icons for the new HTML content
+            import { createIcons, Search, Zap, TrendingUp, TrendingDown, Clock, Layers } from 'https://unpkg.com/lucide@latest';
+            createIcons({ icons: { Search, Zap, TrendingUp, TrendingDown, Clock, Layers } });
+
+            // Save to Firestore
+            if (db && userId) {
+                try {
+                    const signalRef = doc(collection(db, dataPath));
+                    await setDoc(signalRef, {
+                        timeframe: timeframe,
+                        signal: signalData.signal,
+                        reason: signalData.reason,
+                        userId: userId,
+                        timestamp: serverTimestamp(),
+                        // Mock price, assumed to be around 2350
+                        mockPrice: (2350 + Math.random() * 10).toFixed(2) 
+                    });
+                    console.log("Signal saved successfully to Firestore.");
+                } catch (e) {
+                    console.error("Error adding document: ", e);
+                    customAlert(`ไม่สามารถบันทึกสัญญาณ: ${e.message}`);
+                }
+            }
+        }
+
+        // Event Listener for Button
+        document.getElementById('generate-button').addEventListener('click', async () => {
+            const timeframe = document.getElementById('timeframe').value;
+            const button = document.getElementById('generate-button');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const contentDiv = document.getElementById('signal-content');
+            
+            if (!userId) {
+                customAlert("กำลังรอการเชื่อมต่อกับ Firebase กรุณารอสักครู่");
+                return;
+            }
+
+            button.disabled = true;
+            loadingIndicator.classList.remove('hidden');
+            contentDiv.innerHTML = '';
+            document.getElementById('signal-output').classList.remove('hidden');
+
+            const signalData = await generateSignal(timeframe);
+
+            loadingIndicator.classList.add('hidden');
+            button.disabled = false;
+            
+            await displayAndSaveSignal(timeframe, signalData);
+        });
+
+        // Initialize everything on load
+        if (Object.keys(finalFirebaseConfig).length > 0) {
+            setupAuthAndListeners();
+        }
+    </script>
+
 </body>
 </html>
