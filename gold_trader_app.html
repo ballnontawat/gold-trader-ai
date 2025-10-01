@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Gold Signal Bot (บอทสัญญาณเทรดทอง)</title>
+    <!-- Load Tailwind CSS for responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Tahoma', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary-gold': '#FFD700',
+                        'dark-bg': '#1E293B',
+                        'card-bg': '#334155',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom styles for professional look */
+        body {
+            background-color: #0F172A; /* Slate 900 */
+        }
+        .signal-card {
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            border: 1px solid #FFD70030;
+        }
+        .loading-animation {
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid #FFD700;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .buy-signal {
+            background-color: #10B981; /* Green 500 */
+        }
+        .sell-signal {
+            background-color: #EF4444; /* Red 500 */
+        }
+        .wait-signal {
+            background-color: #FBBF24; /* Amber 500 */
+        }
+        /* Ensure input elements are readable on dark background */
+        select {
+            color-scheme: dark;
+        }
+    </style>
+</head>
+<body class="font-sans text-white min-h-screen p-4 flex items-center justify-center">
+
+    <div class="w-full max-w-lg">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-primary-gold mb-2">
+                <span class="text-5xl">G</span>old <span class="text-5xl">T</span>rader <span class="text-5xl">A</span>I
+            </h1>
+            <p class="text-lg text-slate-300">บอทวิเคราะห์และสร้างสัญญาณเทรดทองคำ (XAUUSD)</p>
+            <p class="text-sm text-slate-500 mt-1">ขับเคลื่อนโดย Gemini พร้อมข้อมูลเรียลไทม์จาก Google Search</p>
+        </header>
+
+        <main class="space-y-6">
+
+            <!-- Timeframe Selection -->
+            <div class="flex items-center justify-center space-x-3 mb-4">
+                <label for="timeframeSelect" class="text-slate-300 font-medium text-sm">เลือก Timeframe:</label>
+                <select id="timeframeSelect" class="bg-card-bg text-primary-gold border border-slate-600 rounded-lg p-2 focus:ring-primary-gold focus:border-primary-gold">
+                    <!-- Added M5, M15, M30 for short-term trading -->
+                    <option value="M5">M5 (5 นาที)</option>
+                    <option value="M15">M15 (15 นาที)</option>
+                    <option value="M30">M30 (30 นาที)</option>
+                    <!-- Existing Timeframes -->
+                    <option value="H1">H1 (1 ชั่วโมง)</option>
+                    <option value="H4" selected>H4 (4 ชั่วโมง)</option>
+                    <option value="D1">D1 (รายวัน)</option>
+                </select>
+            </div>
+
+            <!-- Signal Generation Button -->
+            <div class="text-center">
+                <button id="generateSignalBtn" onclick="generateSignal()"
+                    class="w-full sm:w-auto px-8 py-3 bg-primary-gold text-dark-bg font-extrabold rounded-xl transition duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span id="buttonText">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        สร้างสัญญาณเทรดทองคำใหม่
+                    </span>
+                    <div id="loadingIndicator" class="loading-animation hidden"></div>
+                </button>
+            </div>
+
+            <!-- Market Summary Button -->
+            <div class="text-center mt-4">
+                <button id="generateSummaryBtn" onclick="generateSummary()"
+                    class="w-full sm:w-auto px-8 py-3 bg-slate-700 text-primary-gold font-extrabold rounded-xl transition duration-300 transform hover:bg-slate-600 active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span id="summaryButtonText">
+                        ✨ สรุปตลาด & กลยุทธ์รายวัน
+                    </span>
+                    <div id="summaryLoadingIndicator" class="loading-animation hidden"></div>
+                </button>
+            </div>
+
+
+            <!-- Signal Display Card -->
+            <div id="signalCard" class="signal-card bg-card-bg rounded-xl p-6 hidden">
+                <h2 class="text-2xl font-bold border-b pb-3 mb-4 flex justify-between items-center text-primary-gold">
+                    <span>สัญญาณการเทรดล่าสุด</span>
+                    <!-- Timeframe Display -->
+                    <span id="signalTimeframe" class="text-base font-semibold px-3 py-1 bg-slate-700 rounded-full text-slate-300">กรอบเวลา: -</span>
+                </h2>
+
+                <!-- Layout adapted for mobile first: two columns on larger screens -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <!-- Signal Type -->
+                    <div class="p-3 rounded-lg border border-slate-600">
+                        <p class="text-slate-400 text-sm">ทิศทางสัญญาณ (SIGNAL)</p>
+                        <p id="signalDirection" class="text-2xl font-black mt-1"></p>
+                    </div>
+
+                    <!-- Entry Price -->
+                    <div class="p-3 rounded-lg border border-slate-600">
+                        <p class="text-slate-400 text-sm">ราคาเข้า (ENTRY)</p>
+                        <p id="signalEntry" class="text-xl font-semibold mt-1 text-slate-200"></p>
+                    </div>
+
+                    <!-- Target Price -->
+                    <div class="p-3 rounded-lg border border-slate-600">
+                        <p class="text-slate-400 text-sm">เป้าหมายกำไร (TP)</p>
+                        <p id="signalTP" class="text-xl font-semibold mt-1 text-green-400"></p>
+                    </div>
+
+                    <!-- Stop Loss -->
+                    <div class="p-3 rounded-lg border border-slate-600">
+                        <p class="text-slate-400 text-sm">หยุดขาดทุน (SL)</p>
+                        <p id="signalSL" class="text-xl font-semibold mt-1 text-red-400"></p>
+                    </div>
+                </div>
+
+                <!-- Analysis/Reason -->
+                <div class="bg-slate-700 p-4 rounded-lg">
+                    <p class="text-sm font-semibold text-primary-gold mb-2">เหตุผลการวิเคราะห์ (REASON)</p>
+                    <p id="signalReason" class="text-base text-slate-300 italic"></p>
+                </div>
+
+                <!-- Sources/Grounding -->
+                <div id="sourceContainer" class="mt-4 border-t pt-4 border-slate-700 hidden">
+                    <p class="text-xs font-semibold text-slate-400 mb-1">ข้อมูลอ้างอิง:</p>
+                    <ul id="sourceList" class="text-xs text-slate-500 space-y-1">
+                        <!-- Sources will be injected here -->
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Market Summary Display Card -->
+            <div id="marketSummaryCard" class="signal-card bg-card-bg rounded-xl p-6 hidden">
+                <h2 class="text-2xl font-bold border-b pb-3 mb-4 text-primary-gold">
+                    สรุปภาพรวมตลาดทองคำรายวัน (Gemini Analysis)
+                </h2>
+                <div id="marketSummaryContent" class="text-base text-slate-300 space-y-3">
+                    <!-- Summary content will be injected here -->
+                </div>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="hidden p-4 bg-red-800/30 text-red-400 rounded-xl border border-red-700 text-center">
+                <!-- Error message will be displayed here -->
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        // Gemini API configuration
+        const MODEL_NAME = "gemini-2.5-flash-preview-05-20";
+        // NOTE: If running this file outside the canvas environment (e.g., GitHub Pages), 
+        // you MUST provide your own Gemini API key here or use a secure backend proxy.
+        // For security, leaving it empty here relies on the canvas environment providing it.
+        const apiKey = ""; 
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+
+        // UI Element References
+        const signalCard = document.getElementById('signalCard');
+        const generateSignalBtn = document.getElementById('generateSignalBtn');
+        const buttonText = document.getElementById('buttonText');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const generateSummaryBtn = document.getElementById('generateSummaryBtn');
+        const summaryButtonText = document.getElementById('summaryButtonText');
+        const summaryLoadingIndicator = document.getElementById('summaryLoadingIndicator');
+        const marketSummaryCard = document.getElementById('marketSummaryCard');
+        const marketSummaryContent = document.getElementById('marketSummaryContent');
+
+        const signalDirection = document.getElementById('signalDirection');
+        const signalEntry = document.getElementById('signalEntry');
+        const signalTP = document.getElementById('signalTP');
+        const signalSL = document.getElementById('signalSL');
+        const signalReason = document.getElementById('signalReason');
+        const signalTimeframe = document.getElementById('signalTimeframe');
+        const timeframeSelect = document.getElementById('timeframeSelect');
+
+        const sourceContainer = document.getElementById('sourceContainer');
+        const sourceList = document.getElementById('sourceList');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Function to display error message
+        function displayError(message, isSummary = false) {
+            errorMessage.textContent = `เกิดข้อผิดพลาด: ${message}`;
+            errorMessage.classList.remove('hidden');
+            if (isSummary) {
+                marketSummaryCard.classList.add('hidden');
+            } else {
+                signalCard.classList.add('hidden');
+            }
+        }
+
+        // Function to handle API call and retries with exponential backoff
+        async function fetchWithBackoff(url, options, maxRetries = 5) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) {
+                        return response;
+                    } else if (response.status === 429 || response.status >= 500) {
+                        // Retry for rate limiting (429) or server errors (5xx)
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        console.warn(`Request failed with status ${response.status}. Retrying in ${delay / 1000}s...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    } else {
+                        // Non-retryable error
+                        const errorData = await response.json();
+                        throw new Error(`API Error ${response.status}: ${errorData.error.message}`);
+                    }
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        throw error;
+                    }
+                    // Continue loop for retry
+                }
+            }
+        }
+
+        // ------------------------------------
+        // CORE FEATURE 1: Generate Trading Signal
+        // ------------------------------------
+        window.generateSignal = async function() {
+            // Reset UI
+            errorMessage.classList.add('hidden');
+            signalCard.classList.add('hidden');
+            sourceList.innerHTML = '';
+            sourceContainer.classList.add('hidden');
+            signalDirection.className = 'text-2xl font-black mt-1 p-1 rounded'; // Reset classes for new color
+
+            // Get selected timeframe
+            const selectedTimeframe = timeframeSelect.value;
+            signalTimeframe.textContent = `กรอบเวลา: ${selectedTimeframe}`;
+
+            // Set loading state
+            generateSignalBtn.disabled = true;
+            buttonText.classList.add('hidden');
+            loadingIndicator.classList.remove('hidden');
+
+            // --- SYSTEM PROMPT for Signal ---
+            const systemPrompt = `
+                Act as a highly reliable gold trading signal provider for XAUUSD.
+                You must analyze current global economic news, USD performance, and technical sentiment to provide a concise, actionable signal based on the ${selectedTimeframe} timeframe.
+                Your response must be in Thai and must strictly adhere to the following 6-line, easily parsable format:
+
+                SIGNAL: [ซื้อ/ขาย/รอ (BUY/SELL/WAIT)]
+                TIMEFRAME: [กรอบเวลา เช่น H4/Daily]
+                ENTRY: [ราคาในหน่วย USD เช่น 2350.50]
+                TP: [ราคาในหน่วย USD เช่น 2380.00]
+                SL: [ราคาในหน่วย USD เช่น 2335.50]
+                REASON: [1-2 ประโยควิเคราะห์ตามข้อมูลเรียลไทม์]
+            `;
+            
+            const userQuery = `โปรดให้สัญญาณเทรดทองคำ (XAUUSD) ล่าสุดสำหรับกรอบเวลา ${selectedTimeframe} พร้อมราคาเข้า, TP, SL, และเหตุผลการวิเคราะห์`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                config: {
+                    temperature: 0.1
+                }
+            };
+
+            try {
+                const response = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                if (!candidate || !candidate.content?.parts?.[0]?.text) {
+                    throw new Error("ไม่สามารถสร้างสัญญาณได้ โปรดลองอีกครั้ง");
+                }
+
+                const rawText = candidate.content.parts[0].text.trim();
+                
+                // 1. Parse the structured text output
+                const lines = rawText.split('\n').map(line => line.trim());
+                let signal = {
+                    DIRECTION: 'WAIT',
+                    TIMEFRAME: selectedTimeframe,
+                    ENTRY: '-',
+                    TP: '-',
+                    SL: '-',
+                    REASON: 'ไม่พบเหตุผลการวิเคราะห์ที่ชัดเจน'
+                };
+
+                lines.forEach(line => {
+                    if (line.startsWith('SIGNAL:')) {
+                        signal.DIRECTION = line.split(':')[1]?.trim() || 'WAIT';
+                    } else if (line.startsWith('TIMEFRAME:')) {
+                        const tf = line.split(':')[1]?.trim();
+                        if (tf) {
+                            signal.TIMEFRAME = tf.toUpperCase();
+                        }
+                    } else if (line.startsWith('ENTRY:')) {
+                        signal.ENTRY = line.split(':')[1]?.trim() || '-';
+                    } else if (line.startsWith('TP:')) {
+                        signal.TP = line.split(':')[1]?.trim() || '-';
+                    } else if (line.startsWith('SL:')) {
+                        signal.SL = line.split(':')[1]?.trim() || '-';
+                    } else if (line.startsWith('REASON:')) {
+                        signal.REASON = line.substring(line.indexOf(':') + 1).trim() || signal.REASON;
+                    }
+                });
+
+                // 2. Update UI
+                signalCard.classList.remove('hidden');
+
+                // Update Direction and apply color styling
+                signalDirection.textContent = signal.DIRECTION;
+                if (signal.DIRECTION.includes('ซื้อ') || signal.DIRECTION.toUpperCase().includes('BUY')) {
+                    signalDirection.classList.add('buy-signal', 'text-white');
+                } else if (signal.DIRECTION.includes('ขาย') || signal.DIRECTION.toUpperCase().includes('SELL')) {
+                    signalDirection.classList.add('sell-signal', 'text-white');
+                } else {
+                    signalDirection.classList.add('wait-signal', 'text-dark-bg');
+                }
+                
+                signalTimeframe.textContent = `กรอบเวลา: ${signal.TIMEFRAME}`;
+
+                // Display prices, ensure they are clean
+                signalEntry.textContent = signal.ENTRY.replace('USD', '').trim();
+                signalTP.textContent = signal.TP.replace('USD', '').trim();
+                signalSL.textContent = signal.SL.replace('USD', '').trim();
+                signalReason.textContent = signal.REASON;
+
+                // 3. Extract and display grounding sources
+                let sources = [];
+                const groundingMetadata = candidate.groundingMetadata;
+                if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                    sources = groundingMetadata.groundingAttributions
+                        .map(attribution => ({
+                            uri: attribution.web?.uri,
+                            title: attribution.web?.title,
+                        }))
+                        .filter(source => source.uri && source.title);
+                }
+
+                if (sources.length > 0) {
+                    sourceContainer.classList.remove('hidden');
+                    sourceList.innerHTML = ''; 
+                    sources.forEach(source => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<a href="${source.uri}" target="_blank" class="hover:text-primary-gold transition duration-200 truncate block">${source.title}</a>`;
+                        sourceList.appendChild(li);
+                    });
+                } else {
+                    sourceContainer.classList.add('hidden');
+                }
+
+
+            } catch (error) {
+                console.error("Gemini API Call Failed (Signal):", error);
+                displayError(error.message || "มีข้อผิดพลาดในการเชื่อมต่อหรือวิเคราะห์ข้อมูลสัญญาณ");
+            } finally {
+                // Remove loading state
+                generateSignalBtn.disabled = false;
+                buttonText.classList.remove('hidden');
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+
+        // ------------------------------------
+        // CORE FEATURE 2: Market Summary & Strategy
+        // ------------------------------------
+        window.generateSummary = async function() {
+            // Reset UI
+            marketSummaryCard.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            marketSummaryContent.innerHTML = '';
+
+            // Set loading state
+            generateSummaryBtn.disabled = true;
+            summaryButtonText.classList.add('hidden');
+            summaryLoadingIndicator.classList.remove('hidden');
+
+            // --- SYSTEM PROMPT for Summary ---
+            const systemPrompt = `
+                Act as a chief market strategist specializing in precious metals. Provide a comprehensive, easy-to-read daily market overview for XAUUSD (Gold). The analysis must include:
+                1. Current Market Sentiment (Bullish/Bearish/Neutral).
+                2. Key Driving Factors (Economic data, USD strength, or geopolitical risks).
+                3. A general Strategic Approach (e.g., Range trading, Trend following, or Caution).
+
+                The response must be in Thai and should not be a trading signal (no ENTRY, TP, SL). Structure the response clearly with markdown formatting (e.g., **heading** and bullet lists).
+            `;
+            
+            const userQuery = "โปรดสรุปภาพรวมตลาดทองคำ XAUUSD รายวัน และระบุกลยุทธ์การซื้อขายโดยรวม";
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                config: {
+                    temperature: 0.2
+                }
+            };
+
+            try {
+                const response = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                if (!candidate || !candidate.content?.parts?.[0]?.text) {
+                    throw new Error("ไม่สามารถสร้างสรุปตลาดได้ โปรดลองอีกครั้ง");
+                }
+
+                const summaryText = candidate.content.parts[0].text.trim();
+                
+                // Convert the markdown output to simple HTML structure for display
+                const htmlContent = summaryText
+                    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary-gold">$1</strong>') // Bold text
+                    .replace(/\n\n/g, '</p><p>') // Double newlines to paragraphs
+                    .replace(/\n/g, '<br>') // Single newlines to breaks
+                    .replace(/<p><br>/g, '<p>'); // Clean up stray <br> after <p>
+
+                marketSummaryContent.innerHTML = `<p>${htmlContent}</p>`;
+                marketSummaryCard.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Summary API Call Failed:", error);
+                displayError(error.message || "มีข้อผิดพลาดในการเชื่อมต่อหรือวิเคราะห์ข้อมูลสำหรับสรุปตลาด", true);
+            } finally {
+                // Remove loading state
+                generateSummaryBtn.disabled = false;
+                summaryButtonText.classList.remove('hidden');
+                summaryLoadingIndicator.classList.add('hidden');
+            }
+        }
+        
+        // Initial load: Generate the first signal when the page loads
+        window.onload = generateSignal;
+    </script>
+</body>
+</html>
