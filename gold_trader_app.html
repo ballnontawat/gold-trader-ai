@@ -180,10 +180,8 @@
     <script type="module">
         // Gemini API configuration
         const MODEL_NAME = "gemini-2.5-flash-preview-05-20";
-        // NOTE: If running this file outside the canvas environment (e.g., GitHub Pages), 
-        // you MUST provide your own Gemini API key here or use a secure backend proxy.
-        // For security, leaving it empty here relies on the canvas environment providing it.
-        const apiKey = ""; 
+        // *** KEY INSERTED HERE ***
+        const apiKey = "AIzaSyD1a62baK2DTiOjtRrRasFuPgGEvOSNPS8"; 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
 
         // UI Element References
@@ -202,8 +200,7 @@
         const signalTP = document.getElementById('signalTP');
         const signalSL = document.getElementById('signalSL');
         const signalReason = document.getElementById('signalReason');
-        const signalTimeframe = document.getElementById('signalTimeframe');
-        const timeframeSelect = document.getElementById('timeframeSelect');
+        const signalTimeframe = document.getElementById('timeframeSelect');
 
         const sourceContainer = document.getElementById('sourceContainer');
         const sourceList = document.getElementById('sourceList');
@@ -260,7 +257,7 @@
 
             // Get selected timeframe
             const selectedTimeframe = timeframeSelect.value;
-            signalTimeframe.textContent = `กรอบเวลา: ${selectedTimeframe}`;
+            document.getElementById('signalTimeframe').textContent = `กรอบเวลา: ${selectedTimeframe}`;
 
             // Set loading state
             generateSignalBtn.disabled = true;
@@ -353,7 +350,7 @@
                     signalDirection.classList.add('wait-signal', 'text-dark-bg');
                 }
                 
-                signalTimeframe.textContent = `กรอบเวลา: ${signal.TIMEFRAME}`;
+                document.getElementById('signalTimeframe').textContent = `กรอบเวลา: ${signal.TIMEFRAME}`;
 
                 // Display prices, ensure they are clean
                 signalEntry.textContent = signal.ENTRY.replace('USD', '').trim();
