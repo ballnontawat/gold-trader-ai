@@ -368,7 +368,8 @@
 
             const payload = {
                 contents: [{ parts: [{ text: userPrompt }] }],
-                tools: [{ "google_search": {} }],
+                // TOOLS REMOVED: Cannot use tools with JSON response type
+                // tools: [{ "google_search": {} }], 
                 systemInstruction: {
                     parts: [{ text: "Act as a specialized XAUUSD market analyst." }]
                 },
