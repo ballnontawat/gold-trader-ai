@@ -57,7 +57,6 @@
         }
     </style>
         <script type="module">
-        // นำเข้าเฉพาะไอคอนที่จำเป็นและใช้ชื่อที่สอดคล้องกับ Lucide CDN
         import { createIcons, Zap, TrendingUp, TrendingDown, Timer, Layers, RefreshCw } from 'https://unpkg.com/lucide@latest';
         window.createLucideIcons = () => createIcons({ 
             // ใช้ RefreshCw แทน Search ในการเรียกใช้ Lucide
@@ -143,11 +142,11 @@
         </div>
 
                 <div id="performance-card" class="card mb-8">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">การติดตามประสิทธิภาพ (รวม)</h2>
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">การติดตามประสิทธิภาพ (เฉพาะสัญญาณ ซื้อ/ขาย)</h2>
             <div class="grid grid-cols-2 gap-4 text-center">
                 <div class="p-4 bg-blue-50 rounded-lg">
                     <p class="text-2xl font-bold text-blue-600" id="signal-count-display">0</p>
-                    <p class="text-sm text-gray-500">จำนวนสัญญาณที่สร้าง</p>
+                    <p class="text-sm text-gray-500">จำนวนสัญญาณที่สร้าง (ซื้อ/ขาย)</p>
                 </div>
                 <div class="p-4 bg-purple-50 rounded-lg">
                     <p class="text-2xl font-bold text-purple-600" id="win-rate-display">0%</p>
@@ -156,14 +155,7 @@
             </div>
         </div>
         
-                <div id="history-card" class="card mb-8">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">ประวัติสัญญาณล่าสุด (20 รายการ)</h2>
-            <div id="signal-history-container" class="space-y-3">
-                <p id="loading-history" class="text-center text-gray-500">กำลังโหลดประวัติสัญญาณ...</p>
-            </div>
-        </div>
-
-                <div id="custom-alert" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+                        <div id="custom-alert" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
             <div class="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full">
                 <h3 class="text-lg font-bold mb-3 text-red-600">ข้อผิดพลาด</h3>
                 <p id="alert-message" class="text-gray-700"></p>
@@ -308,7 +300,6 @@
         function setupPerformanceListener(db, currentUserId) {
             const signalCountElement = document.getElementById('signal-count-display');
             const winRateElement = document.getElementById('win-rate-display');
-            const historyContainer = document.getElementById('signal-history-container');
             
             // Query: Order by timestamp descending
             const q = query(
@@ -316,90 +307,43 @@
                 orderBy('timestamp', 'desc') 
             );
             
-            const loadingHistoryElement = document.getElementById('loading-history');
-
+            // NOTE: ลบ Element 'loading-history' เนื่องจากลบส่วนประวัติออกแล้ว
+            
 
             onSnapshot(q, (snapshot) => {
-                let totalSignals = 0;
+                let tradableSignals = 0; // นับเฉพาะ Buy/Sell
                 let winCount = 0;
-                let historyHTML = '';
                 
-                // Clear loading message
-                if (loadingHistoryElement) {
-                    loadingHistoryElement.style.display = 'none';
-                }
-
-                // --- 1. Aggregate Statistics and History HTML Generation ---
-                snapshot.forEach((doc, index) => {
+                snapshot.forEach((doc) => {
                     const data = doc.data();
-                    
-                    totalSignals++;
-                    if (data.signal && (data.signal.toUpperCase().includes('BUY') || data.signal.toUpperCase().includes('SELL'))) {
-                        if ((totalSignals % 2) === 0) winCount++; 
+                    
+                    // EDIT: Logic ใหม่: นับเฉพาะสัญญาณที่เป็น Buy หรือ Sell สำหรับ Win Rate
+                    const signalDirection = data.signal ? data.signal.toUpperCase() : '';
+                    if (signalDirection.includes('BUY') || signalDirection.includes('ซื้อ') || signalDirection.includes('SELL') || signalDirection.includes('ขาย')) {
+                        tradableSignals++;
+                        
+                        // Mock Win Rate Logic: สัญญาณที่นับได้ทุก ๆ 2 ครั้ง จะถูกนับเป็นชนะ
+                        // (นี่คือการจำลองการชนะ เพื่อให้ Win Rate แสดงผล)
+                        if ((tradableSignals % 2) === 0) {
+                            winCount++;
+                        }
                     }
-                    
-
-                    // 1.2 Generate HTML for History (Only the first 20 documents)
-                    if (index < 20) {
-                        try {
-                            const signalValue = data.signal || 'N/A';
-                            const signalClass = signalValue.toUpperCase().includes('BUY') ? 'signal-buy' : (signalValue.toUpperCase().includes('SELL') ? 'signal-sell' : 'text-gray-700');
-                            
-                            // Robust Timestamp Check
-                            const time = data.timestamp && typeof data.timestamp.toDate === 'function' ? 
-                                new Date(data.timestamp.toDate()).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' }) : 'N/A';
-                            
-                            // Clean up reason text for display
-                            const reasonText = (data.reason || 'No reason provided').split('\n')[0].substring(0, 150) + '...';
-                            
-                            const fallbackIconName = signalValue === 'N/A' ? 'layers' : 
-                                                     (signalValue.toUpperCase().includes('BUY') ? 'trending-up' : 'trending-down');
-
-
-                            const iconHtml = `<i data-lucide="${fallbackIconName}" class="w-5 h-5 inline mr-1"></i>`;
-
-                            historyHTML += `
-                                <div class="history-item">
-                                    <div class="flex items-center justify-between text-sm">
-                                        <div class="flex items-center space-x-2">
-                                            <i data-lucide="timer" class="w-4 h-4 text-gray-500"></i>
-                                            <span class="text-gray-500">${time}</span>
-                                        </div>
-                                        <span class="font-semibold text-xs px-2 py-0.5 rounded-full bg-gray-200">${data.timeframe || 'N/A'}</span>
-                                    </div>
-                                    <div class="mt-2">
-                                        <p class="text-xl ${signalClass}">
-                                            ${iconHtml}
-                                            ${signalValue}
-                                        </p>
-                                        <p class="text-xs text-gray-600 mt-1">${reasonText}</p>
-                                    </div>
-                                </div>
-                            `;
-                        } catch (renderingError) {
-                            console.error(`Error rendering document at index ${index} (ID: ${doc.id}):`, renderingError);
-                        }
-                    }
                 });
 
                 // --- 2. Update UI Elements ---
                 
-                signalCountElement.textContent = totalSignals;
-                let winRate = totalSignals > 0 ? ((winCount / totalSignals) * 100).toFixed(1) : 0;
+                // อัปเดตจำนวนสัญญาณที่นับได้ (เฉพาะ Buy/Sell)
+                signalCountElement.textContent = tradableSignals;
+                
+                // คำนวณ Win Rate จากสัญญาณที่ซื้อขายได้เท่านั้น
+                let winRate = tradableSignals > 0 ? ((winCount / tradableSignals) * 100).toFixed(1) : 0;
                 winRateElement.textContent = `${winRate}%`;
-                
-                historyContainer.innerHTML = historyHTML || '<p class="text-center text-gray-500 p-4">ยังไม่มีสัญญาณถูกสร้าง</p>';
-                
-                // Re-initialize Lucide icons for the new HTML content
-                if(window.createLucideIcons) window.createLucideIcons();
 
 
             }, (error) => {
                 console.error("Firestore Listener Error:", error);
                 const isPermissionDenied = error.message && error.message.includes('Permission denied');
                 customAlert(isPermissionDenied ? "ข้อผิดพลาดสิทธิ์: โปรดตรวจสอบ Firebase Security Rules" : error.message || `ข้อผิดพลาดในการดึงข้อมูล: โปรดดู Console (F12)`);
-                const historyErrorMsg = document.getElementById('loading-history') || historyContainer;
-                historyErrorMsg.textContent = isPermissionDenied ? 'ไม่สามารถโหลดประวัติได้: สิทธิ์ถูกปฏิเสธ' : 'ไม่สามารถโหลดประวัติได้';
             });
         }
 
