@@ -267,7 +267,6 @@
                 orderBy('timestamp', 'desc') 
             );
             
-            // --- FIX for Type Error: Check if loading element exists before using 'style' ---
             const loadingHistoryElement = document.getElementById('loading-history');
 
 
@@ -294,10 +293,14 @@
                     if (index < 20) {
                         const signalValue = data.signal || 'Hold';
                         const signalClass = signalValue === 'Buy' ? 'signal-buy' : (signalValue === 'Sell' ? 'signal-sell' : 'text-gray-700');
-                        const time = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' }) : 'N/A';
+                        
+                        // FIX: Ensure timestamp exists and is a valid Firebase Timestamp object before calling toDate()
+                        const time = data.timestamp && data.timestamp.toDate ? new Date(data.timestamp.toDate()).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' }) : 'N/A';
                         
                         // Clean up reason text for display
                         const reasonText = (data.reason || 'No reason provided').split('\n')[0].substring(0, 150) + '...';
+                        
+                        // Ensure data-lucide attributes are lowercase for HTML compatibility
                         const iconHtml = signalValue === 'Buy' ? 
                             '<i data-lucide="trending-up" class="w-5 h-5 inline mr-1"></i>' : 
                             (signalValue === 'Sell' ? 
