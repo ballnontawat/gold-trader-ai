@@ -25,7 +25,7 @@
             color: #ef4444; /* red-500 */
             font-weight: 700;
         }
-        /* NEW: Custom classes for large signal display */
+        /* Custom classes for large signal display */
         .buy-signal { 
             background-color: #059669; /* emerald-600 */
         }
@@ -57,11 +57,10 @@
         }
     </style>
         <script type="module">
-        // Ensuring all imported icons use the correct PascalCase/Standard format.
-        import { createIcons, Search, Zap, TrendingUp, TrendingDown, Timer, Layers } from 'https://unpkg.com/lucide@latest';
+        import { createIcons, Search, Zap, TrendingUp, TrendingDown, Timer } from 'https://unpkg.com/lucide@latest';
         window.createLucideIcons = () => createIcons({ 
-            // The object keys here must match the imported names
-            icons: { Search, Zap, TrendingUp, TrendingDown, Timer, Layers } 
+            // Layers ถูกลบออกแล้ว
+            icons: { Search, Zap, TrendingUp, TrendingDown, Timer } 
         });
     </script>
 </head>
@@ -169,6 +168,7 @@
                 <p id="alert-message" class="text-gray-700"></p>
                 <button onclick="document.getElementById('custom-alert').classList.add('hidden')" class="mt-4 w-full py-2 px-4 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition">ตกลง</button>
             </div>
+            <button onclick="console.log('เปิด console เพื่อดู error');" class="mt-4 w-full py-2 px-4 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition hidden">ดู Console</button>
         </div>
 
     </div>
@@ -217,7 +217,7 @@
             document.getElementById('alert-message').textContent = message;
             document.getElementById('custom-alert').classList.remove('hidden');
         }
-        window.customAlert = customAlert; // Make it globally accessible for other parts of the script
+        window.customAlert = customAlert; 
 
 
         if (Object.keys(finalFirebaseConfig).length > 0) {
@@ -304,13 +304,13 @@
             }
         }
 
-        // --- UPDATED: Real-time Listener for Performance and History (Limit 20) ---
+        // --- Real-time Listener for Performance and History ---
         function setupPerformanceListener(db, currentUserId) {
             const signalCountElement = document.getElementById('signal-count-display');
             const winRateElement = document.getElementById('win-rate-display');
             const historyContainer = document.getElementById('signal-history-container');
             
-            // Query for all public signals (needed for overall performance stats and history)
+            // Query: Order by timestamp descending
             const q = query(
                 collection(db, dataPath),
                 orderBy('timestamp', 'desc') 
@@ -334,17 +334,13 @@
                     const data = doc.data();
                     
                     totalSignals++;
-                    // Mock Win Rate Logic
-                    // Only count 'Buy' or 'Sell' as tradable signals
                     if (data.signal && (data.signal.toUpperCase().includes('BUY') || data.signal.toUpperCase().includes('SELL'))) {
-                        // Mock win: Alternate signals for a simple mockup.
                         if ((totalSignals % 2) === 0) winCount++; 
                     }
                     
 
                     // 1.2 Generate HTML for History (Only the first 20 documents)
                     if (index < 20) {
-                        // CRITICAL: try...catch added here to skip documents with bad/incomplete data
                         try {
                             const signalValue = data.signal || 'N/A';
                             const signalClass = signalValue.toUpperCase().includes('BUY') ? 'signal-buy' : (signalValue.toUpperCase().includes('SELL') ? 'signal-sell' : 'text-gray-700');
@@ -356,13 +352,14 @@
                             // Clean up reason text for display
                             const reasonText = (data.reason || 'No reason provided').split('\n')[0].substring(0, 150) + '...';
                             
-                            // Ensure data-lucide attributes are correctly named
+                            // EDIT: ใช้ไอคอน Layers ชั่วคราวแทน หากมีการลบออกจากการ Import 
+                            const layerIcon = '<i data-lucide="layers" class="w-5 h-5 inline mr-1"></i>';
+
                             const iconHtml = signalValue.toUpperCase().includes('BUY') ? 
                                 '<i data-lucide="trending-up" class="w-5 h-5 inline mr-1"></i>' : 
                                 (signalValue.toUpperCase().includes('SELL') ? 
                                 '<i data-lucide="trending-down" class="w-5 h-5 inline mr-1"></i>' : 
-                                '<i data-lucide="layers" class="w-5 h-5 inline mr-1"></i>');
-
+                                layerIcon); // ใช้ icon Layers ชั่วคราว
 
                             historyHTML += `
                                 <div class="history-item">
@@ -384,31 +381,27 @@
                             `;
                         } catch (renderingError) {
                             console.error(`Error rendering document at index ${index} (ID: ${doc.id}):`, renderingError);
-                            // If rendering fails, we skip this item and continue the loop
                         }
                     }
                 });
 
                 // --- 2. Update UI Elements ---
                 
-                // 2.1 Update Performance Metrics
                 signalCountElement.textContent = totalSignals;
                 let winRate = totalSignals > 0 ? ((winCount / totalSignals) * 100).toFixed(1) : 0;
                 winRateElement.textContent = `${winRate}%`;
                 
-                // 2.2 Update History Display
                 historyContainer.innerHTML = historyHTML || '<p class="text-center text-gray-500 p-4">ยังไม่มีสัญญาณถูกสร้าง</p>';
                 
-                // IMPORTANT: Re-initialize Lucide icons for the new HTML content
+                // Re-initialize Lucide icons for the new HTML content
                 if(window.createLucideIcons) window.createLucideIcons();
 
 
             }, (error) => {
                 console.error("Firestore Listener Error:", error);
-                customAlert(`ข้อผิดพลาดในการดึงข้อมูล: ${error.message}`);
-                if (loadingHistoryElement) {
-                    loadingHistoryElement.textContent = 'ไม่สามารถโหลดประวัติได้';
-                }
+                customAlert(error.message || `ข้อผิดพลาดในการดึงข้อมูล: โปรดตรวจสอบ Console (F12)`);
+                const historyErrorMsg = document.getElementById('loading-history') || historyContainer;
+                historyErrorMsg.textContent = 'ไม่สามารถโหลดประวัติได้: ' + (error.message || 'ข้อผิดพลาดการเชื่อมต่อ/สิทธิ์');
             });
         }
 
@@ -500,7 +493,6 @@ REASON: [1-2 ประโยควิเคราะห์ตามข้อม�
                     else if (line.toUpperCase().startsWith('TP:')) { signal.TP = line.split(':')[1]?.trim() || '-'; }
                     else if (line.toUpperCase().startsWith('SL:')) { signal.SL = line.split(':')[1]?.trim() || '-'; }
                     else if (line.toUpperCase().startsWith('REASON:')) { 
-                        // Use substring to get the rest of the line after the first colon
                         const reasonPart = line.substring(line.indexOf(':') + 1).trim();
                         signal.REASON = reasonPart || signal.REASON; 
                     }
@@ -517,10 +509,9 @@ REASON: [1-2 ประโยควิเคราะห์ตามข้อม�
                     signalDirection.className = 'text-2xl font-black mt-1 p-1 rounded sell-signal text-white'; 
                 }
                 else { 
-                    signalDirection.className = 'text-2xl font-black mt-1 p-1 rounded wait-signal text-gray-900'; // text-gray-900 for good contrast on gray-400
+                    signalDirection.className = 'text-2xl font-black mt-1 p-1 rounded wait-signal text-gray-900'; 
                 }
                 
-                // Display prices, ensure they are clean
                 signalEntry.textContent = signal.ENTRY.replace(/USD/gi, '').trim();
                 signalTP.textContent = signal.TP.replace(/USD/gi, '').trim();
                 signalSL.textContent = signal.SL.replace(/USD/gi, '').trim();
