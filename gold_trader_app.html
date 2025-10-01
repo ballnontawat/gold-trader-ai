@@ -47,9 +47,13 @@
     </style>
     <!-- Lucide Icons Global Import -->
     <script type="module">
-        // FIX: Changed 'TrendingUp' to 'trendingUp' (camelCase for import) to resolve the latest SyntaxError.
-        import { createIcons, search, Zap, trendingUp, trendingDown, clock, layers } from 'https://unpkg.com/lucide@latest';
-        window.createLucideIcons = () => createIcons({ icons: { search, Zap, trendingUp, trendingDown, clock, layers } });
+        // FINAL FIX: Ensure ALL imported icons use the correct PascalCase.
+        // Clock, Layers, Search, Zap, TrendingUp, TrendingDown are all PascalCase.
+        import { createIcons, Search, Zap, TrendingUp, TrendingDown, Clock, Layers } from 'https://unpkg.com/lucide@latest';
+        window.createLucideIcons = () => createIcons({ 
+            // The object keys here must match the imported names
+            icons: { Search, Zap, TrendingUp, TrendingDown, Clock, Layers } 
+        });
     </script>
 </head>
 <body class="p-4 md:p-8 min-h-screen bg-gray-100">
