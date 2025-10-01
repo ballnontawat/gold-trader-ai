@@ -45,10 +45,10 @@
             background-color: #f9fafb;
         }
     </style>
-    <!-- Lucide Icons for aesthetic -->
+    <!-- Lucide Icons Global Import -->
     <script type="module">
         import { createIcons, Search, Zap, TrendingUp, TrendingDown, Clock, Layers } from 'https://unpkg.com/lucide@latest';
-        createIcons({ icons: { Search, Zap, TrendingUp, TrendingDown, Clock, Layers } });
+        window.createLucideIcons = () => createIcons({ icons: { Search, Zap, TrendingUp, TrendingDown, Clock, Layers } });
     </script>
 </head>
 <body class="p-4 md:p-8 min-h-screen bg-gray-100">
@@ -162,26 +162,13 @@
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global Firebase Configuration and Tools
-        // Note: These variables (__app_id, __firebase_config, __initial_auth_token) are provided by the canvas environment.
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { /* Mock config */ };
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        const apiKey = typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : '';
-
-        // UI Utility
-        function customAlert(message) {
-            document.getElementById('alert-message').textContent = message;
-            document.getElementById('custom-alert').classList.remove('hidden');
-        }
-
-        // Firebase Initialization and Auth
+        const appId = 'default-app-id'; // Use a fixed default ID when running outside canvas
         let db;
         let auth;
         let userId = null;
 
         // --- START: Firebase Config (User-provided) ---
-        // *** IMPORTANT: The actual configuration for GitHub Pages must be set here manually by the user ***
-        // Example structure used in the conversation:
+        // Project: config-key-91147
         const USER_FIREBASE_CONFIG = {
              apiKey: "AIzaSyBtHWF0G-p_A6nmqp2vs-X8sYeJcgw31C4",
              authDomain: "config-key-91147.firebaseapp.com",
@@ -191,23 +178,36 @@
              appId: "1:829185427257:web:884171fb68fd8c2082cae8",
              measurementId: "G-P70JTKGV13"
         };
-        // *** The Gemini API Key must also be set manually by the user ***
         const USER_GEMINI_API_KEY = "AIzaSyD1a62baK2DTiOjtRrRasFuPgGEvOSNPS8";
         // --- END: Firebase Config (User-provided) ---
 
-        let finalFirebaseConfig = Object.keys(firebaseConfig).length > 0 ? firebaseConfig : USER_FIREBASE_CONFIG;
-        let finalApiKey = apiKey || USER_GEMINI_API_KEY;
+        // Determine final config and key (prioritizing user-provided keys when outside canvas)
+        let finalFirebaseConfig = USER_FIREBASE_CONFIG;
+        let finalApiKey = USER_GEMINI_API_KEY;
 
+        // UI Utility
+        function customAlert(message) {
+            document.getElementById('alert-message').textContent = message;
+            document.getElementById('custom-alert').classList.remove('hidden');
+        }
+
+        // Initialize Firebase
         if (Object.keys(finalFirebaseConfig).length > 0) {
-            const app = initializeApp(finalFirebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            setLogLevel('Debug');
+            try {
+                const app = initializeApp(finalFirebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('Debug');
+            } catch (error) {
+                 console.error("Firebase Init Error:", error);
+                 customAlert(`ข้อผิดพลาด Firebase Init: ${error.message}. กรุณาตรวจสอบ Config Key`);
+            }
         } else {
             customAlert("ไม่พบการตั้งค่า Firebase กรุณาตรวจสอบโค้ด");
         }
 
-        const dataPath = `/artifacts/${appId}/public/data/signals`;
+        const dataPath = `/artifacts/${finalFirebaseConfig.projectId || appId}/public/data/gold_signals`;
+
 
         // Authentication and Initialization Setup
         async function setupAuthAndListeners() {
@@ -220,7 +220,17 @@
                 document.getElementById('api-key-warning').classList.remove('hidden');
             }
 
-            onAuthStateChanged(auth, async (user) => {
+            // Attempt Sign-in
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                 console.error("Anonymous Auth Failed:", error);
+                 loadingMsg.textContent = `ข้อผิดพลาดการเข้าสู่ระบบ: ${error.code}. โปรดเปิด Anonymous Auth ใน Firebase Console`;
+                 loadingMsg.classList.remove('text-blue-500');
+                 loadingMsg.classList.add('text-red-500');
+            }
+
+            onAuthStateChanged(auth, (user) => {
                 if (user) {
                     userId = user.uid;
                     loadingMsg.classList.add('hidden');
@@ -232,18 +242,7 @@
                         setupPerformanceListener(db, userId);
                     }
                 } else {
-                    try {
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    } catch (error) {
-                        console.error("Authentication Error:", error);
-                        loadingMsg.textContent = `ข้อผิดพลาดการเข้าสู่ระบบ: ${error.code}`;
-                        loadingMsg.classList.remove('text-blue-500');
-                        loadingMsg.classList.add('text-red-500');
-                    }
+                    // Fallback should already be handled by signInAnonymously attempt above
                 }
             });
         }
@@ -255,7 +254,6 @@
             const historyContainer = document.getElementById('signal-history-container');
             
             // Query for all public signals (needed for overall performance stats)
-            // Order by timestamp desc to ensure the latest are at the top for history display
             const q = query(
                 collection(db, dataPath),
                 orderBy('timestamp', 'desc') 
@@ -273,25 +271,25 @@
                 snapshot.forEach((doc, index) => {
                     const data = doc.data();
                     
-                    // 1.1 Aggregation for Performance Tracking
                     totalSignals++;
                     // Mock Win Rate Logic (simplified for demonstration)
-                    // For example: Win if the signal is 'Buy' and the user's ID starts with 'a' or 'z', or 'Sell' otherwise.
-                    if (data.signal === 'Buy') {
-                        // 50% chance of a mock win for 'Buy'
-                        if ((totalSignals % 2) === 0) winCount++; 
-                    } else if (data.signal === 'Sell') {
-                         // 50% chance of a mock win for 'Sell'
-                         if ((totalSignals % 2) === 1) winCount++; 
-                    }
+                    if (data.signal && (totalSignals % 2) === 0) winCount++; 
+                    
 
                     // 1.2 Generate HTML for History (UPDATED: only the first 20 documents)
                     if (index < 20) {
-                        const signalClass = data.signal === 'Buy' ? 'signal-buy' : 'signal-sell';
+                        const signalValue = data.signal || 'Hold';
+                        const signalClass = signalValue === 'Buy' ? 'signal-buy' : (signalValue === 'Sell' ? 'signal-sell' : 'text-gray-700');
                         const time = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' }) : 'N/A';
                         
                         // Clean up reason text for display
-                        const reasonText = data.reason.split('\n')[0].substring(0, 150) + '...';
+                        const reasonText = (data.reason || 'No reason provided').split('\n')[0].substring(0, 150) + '...';
+                        const iconHtml = signalValue === 'Buy' ? 
+                            '<i data-lucide="trending-up" class="w-5 h-5 inline mr-1"></i>' : 
+                            (signalValue === 'Sell' ? 
+                            '<i data-lucide="trending-down" class="w-5 h-5 inline mr-1"></i>' : 
+                            '<i data-lucide="layers" class="w-5 h-5 inline mr-1"></i>');
+
 
                         historyHTML += `
                             <div class="history-item">
@@ -304,8 +302,8 @@
                                 </div>
                                 <div class="mt-2">
                                     <p class="text-xl ${signalClass}">
-                                        ${data.signal === 'Buy' ? '<i data-lucide="trending-up" class="w-5 h-5 inline mr-1"></i>' : '<i data-lucide="trending-down" class="w-5 h-5 inline mr-1"></i>'}
-                                        ${data.signal}
+                                        ${iconHtml}
+                                        ${signalValue}
                                     </p>
                                     <p class="text-xs text-gray-600 mt-1">${reasonText}</p>
                                 </div>
@@ -324,9 +322,9 @@
                 // 2.2 Update History Display
                 historyContainer.innerHTML = historyHTML || '<p class="text-center text-gray-500 p-4">ยังไม่มีสัญญาณถูกสร้าง</p>';
                 
-                // Re-initialize Lucide icons for the new HTML content
-                import { createIcons, Search, Zap, TrendingUp, TrendingDown, Clock, Layers } from 'https://unpkg.com/lucide@latest';
-                createIcons({ icons: { Search, Zap, TrendingUp, TrendingDown, Clock, Layers } });
+                // IMPORTANT: Re-initialize Lucide icons for the new HTML content
+                if(window.createLucideIcons) window.createLucideIcons();
+
 
             }, (error) => {
                 console.error("Firestore Listener Error:", error);
@@ -357,6 +355,17 @@
                 tools: [{ "google_search": {} }],
                 systemInstruction: {
                     parts: [{ text: "Act as a specialized XAUUSD market analyst." }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "signal": { "type": "STRING", "enum": ["Buy", "Sell", "Hold"] },
+                            "reason": { "type": "STRING" }
+                        },
+                        "propertyOrdering": ["signal", "reason"]
+                    }
                 }
             };
 
@@ -374,17 +383,7 @@
                 const result = await response.json();
                 const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 
-                // Extract JSON block from markdown
-                const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
-                let signalData = {};
-                
-                if (jsonMatch && jsonMatch[1]) {
-                    signalData = JSON.parse(jsonMatch[1]);
-                } else {
-                    // Fallback if not perfectly wrapped
-                    signalData = { signal: 'Hold', reason: text.substring(0, 500) + '... (รูปแบบคำตอบไม่ถูกต้อง)' };
-                }
-
+                let signalData = JSON.parse(text);
                 return signalData;
 
             } catch (error) {
@@ -399,10 +398,11 @@
             const outputDiv = document.getElementById('signal-output');
             const contentDiv = document.getElementById('signal-content');
             
-            const signalClass = signalData.signal === 'Buy' ? 'signal-buy' : (signalData.signal === 'Sell' ? 'signal-sell' : 'text-gray-700');
-            const iconHtml = signalData.signal === 'Buy' ? 
+            const signalValue = signalData.signal || 'Hold';
+            const signalClass = signalValue === 'Buy' ? 'signal-buy' : (signalValue === 'Sell' ? 'signal-sell' : 'text-gray-700');
+            const iconHtml = signalValue === 'Buy' ? 
                 '<i data-lucide="trending-up" class="w-6 h-6 inline mr-2"></i>' : 
-                (signalData.signal === 'Sell' ? 
+                (signalValue === 'Sell' ? 
                 '<i data-lucide="trending-down" class="w-6 h-6 inline mr-2"></i>' : 
                 '<i data-lucide="layers" class="w-6 h-6 inline mr-2"></i>');
 
@@ -411,7 +411,7 @@
                     <p class="text-sm font-medium text-gray-500">Timeframe: ${timeframe}</p>
                     <p class="text-3xl font-bold mt-1 ${signalClass}">
                         ${iconHtml}
-                        ${signalData.signal}
+                        ${signalValue}
                     </p>
                 </div>
                 <div class="mt-4">
@@ -421,9 +421,8 @@
             `;
             outputDiv.classList.remove('hidden');
 
-            // Re-initialize Lucide icons for the new HTML content
-            import { createIcons, Search, Zap, TrendingUp, TrendingDown, Clock, Layers } from 'https://unpkg.com/lucide@latest';
-            createIcons({ icons: { Search, Zap, TrendingUp, TrendingDown, Clock, Layers } });
+            // IMPORTANT: Re-initialize Lucide icons for the new HTML content
+            if(window.createLucideIcons) window.createLucideIcons();
 
             // Save to Firestore
             if (db && userId) {
@@ -435,13 +434,13 @@
                         reason: signalData.reason,
                         userId: userId,
                         timestamp: serverTimestamp(),
-                        // Mock price, assumed to be around 2350
+                        // Mock price
                         mockPrice: (2350 + Math.random() * 10).toFixed(2) 
                     });
                     console.log("Signal saved successfully to Firestore.");
                 } catch (e) {
                     console.error("Error adding document: ", e);
-                    customAlert(`ไม่สามารถบันทึกสัญญาณ: ${e.message}`);
+                    customAlert(`ไม่สามารถบันทึกสัญญาณ: ${e.message}. (โค้ด: ${e.code})`);
                 }
             }
         }
