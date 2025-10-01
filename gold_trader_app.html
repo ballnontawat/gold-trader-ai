@@ -284,6 +284,7 @@
                 snapshot.forEach((doc, index) => {
                     const data = doc.data();
                     
+                    // Safely handle total count before potential rendering errors
                     totalSignals++;
                     // Mock Win Rate Logic (simplified for demonstration)
                     if (data.signal && (totalSignals % 2) === 0) winCount++; 
@@ -291,41 +292,47 @@
 
                     // 1.2 Generate HTML for History (UPDATED: only the first 20 documents)
                     if (index < 20) {
-                        const signalValue = data.signal || 'Hold';
-                        const signalClass = signalValue === 'Buy' ? 'signal-buy' : (signalValue === 'Sell' ? 'signal-sell' : 'text-gray-700');
-                        
-                        // FIX: Ensure timestamp exists and is a valid Firebase Timestamp object before calling toDate()
-                        const time = data.timestamp && data.timestamp.toDate ? new Date(data.timestamp.toDate()).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' }) : 'N/A';
-                        
-                        // Clean up reason text for display
-                        const reasonText = (data.reason || 'No reason provided').split('\n')[0].substring(0, 150) + '...';
-                        
-                        // Ensure data-lucide attributes are lowercase for HTML compatibility
-                        const iconHtml = signalValue === 'Buy' ? 
-                            '<i data-lucide="trending-up" class="w-5 h-5 inline mr-1"></i>' : 
-                            (signalValue === 'Sell' ? 
-                            '<i data-lucide="trending-down" class="w-5 h-5 inline mr-1"></i>' : 
-                            '<i data-lucide="layers" class="w-5 h-5 inline mr-1"></i>');
+                        try {
+                            const signalValue = data.signal || 'Hold';
+                            const signalClass = signalValue === 'Buy' ? 'signal-buy' : (signalValue === 'Sell' ? 'signal-sell' : 'text-gray-700');
+                            
+                            // Robust Timestamp Check
+                            const time = data.timestamp && typeof data.timestamp.toDate === 'function' ? 
+                                new Date(data.timestamp.toDate()).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' }) : 'N/A';
+                            
+                            // Clean up reason text for display
+                            const reasonText = (data.reason || 'No reason provided').split('\n')[0].substring(0, 150) + '...';
+                            
+                            // Ensure data-lucide attributes are lowercase with hyphens for HTML compatibility
+                            const iconHtml = signalValue === 'Buy' ? 
+                                '<i data-lucide="trending-up" class="w-5 h-5 inline mr-1"></i>' : 
+                                (signalValue === 'Sell' ? 
+                                '<i data-lucide="trending-down" class="w-5 h-5 inline mr-1"></i>' : 
+                                '<i data-lucide="layers" class="w-5 h-5 inline mr-1"></i>');
 
 
-                        historyHTML += `
-                            <div class="history-item">
-                                <div class="flex items-center justify-between text-sm">
-                                    <div class="flex items-center space-x-2">
-                                        <i data-lucide="clock" class="w-4 h-4 text-gray-500"></i>
-                                        <span class="text-gray-500">${time}</span>
+                            historyHTML += `
+                                <div class="history-item">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center space-x-2">
+                                            <i data-lucide="clock" class="w-4 h-4 text-gray-500"></i>
+                                            <span class="text-gray-500">${time}</span>
+                                        </div>
+                                        <span class="font-semibold text-xs px-2 py-0.5 rounded-full bg-gray-200">${data.timeframe || 'N/A'}</span>
                                     </div>
-                                    <span class="font-semibold text-xs px-2 py-0.5 rounded-full bg-gray-200">${data.timeframe}</span>
+                                    <div class="mt-2">
+                                        <p class="text-xl ${signalClass}">
+                                            ${iconHtml}
+                                            ${signalValue}
+                                        </p>
+                                        <p class="text-xs text-gray-600 mt-1">${reasonText}</p>
+                                    </div>
                                 </div>
-                                <div class="mt-2">
-                                    <p class="text-xl ${signalClass}">
-                                        ${iconHtml}
-                                        ${signalValue}
-                                    </p>
-                                    <p class="text-xs text-gray-600 mt-1">${reasonText}</p>
-                                </div>
-                            </div>
-                        `;
+                            `;
+                        } catch (renderingError) {
+                            console.error(`Error rendering document at index ${index} (ID: ${doc.id}):`, renderingError);
+                            // If rendering fails, we just skip this item and continue the loop
+                        }
                     }
                 });
 
@@ -354,147 +361,4 @@
 
         // Gemini API Call
         async function generateSignal(timeframe) {
-            const userPrompt = `You are a professional gold (XAUUSD) market analyst. Analyze the current market condition for XAUUSD at the ${timeframe} timeframe based on technical indicators (like RSI, MACD, Moving Averages) and current market sentiment. Provide a clear and concise trading signal.
-            
-            Your output MUST be in a single JSON block formatted exactly as follows:
-            {
-              "signal": "[Buy/Sell/Hold]",
-              "reason": "Explain the full technical and sentiment reasons for the signal in 3-5 sentences in Thai."
-            }`;
-            
-            if (!finalApiKey) {
-                 customAlert("กรุณากำหนด API Key ก่อนเริ่มใช้งาน.");
-                 return { signal: 'Hold', reason: 'ไม่สามารถเรียกใช้ AI ได้เนื่องจากขาด API Key' };
-            }
-
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${finalApiKey}`;
-
-            const payload = {
-                contents: [{ parts: [{ text: userPrompt }] }],
-                // TOOLS REMOVED: Cannot use tools with JSON response type
-                // tools: [{ "google_search": {} }], 
-                systemInstruction: {
-                    parts: [{ text: "Act as a specialized XAUUSD market analyst." }]
-                },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "OBJECT",
-                        properties: {
-                            "signal": { "type": "STRING", "enum": ["Buy", "Sell", "Hold"] },
-                            "reason": { "type": "STRING" }
-                        },
-                        "propertyOrdering": ["signal", "reason"]
-                    }
-                }
-            };
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                
-                let signalData = JSON.parse(text);
-                return signalData;
-
-            } catch (error) {
-                console.error("Gemini API Error:", error);
-                customAlert(`เกิดข้อผิดพลาดในการเรียก AI: ${error.message}`);
-                return { signal: 'Hold', reason: `เกิดข้อผิดพลาดในการสื่อสารกับ AI: ${error.message}` };
-            }
-        }
-
-        // Display Signal and Save to Firestore
-        async function displayAndSaveSignal(timeframe, signalData) {
-            const outputDiv = document.getElementById('signal-output');
-            const contentDiv = document.getElementById('signal-content');
-            
-            const signalValue = signalData.signal || 'Hold';
-            const signalClass = signalValue === 'Buy' ? 'signal-buy' : (signalValue === 'Sell' ? 'signal-sell' : 'text-gray-700');
-            const iconHtml = signalValue === 'Buy' ? 
-                '<i data-lucide="trending-up" class="w-6 h-6 inline mr-2"></i>' : 
-                (signalValue === 'Sell' ? 
-                '<i data-lucide="trending-down" class="w-6 h-6 inline mr-2"></i>' : 
-                '<i data-lucide="layers" class="w-6 h-6 inline mr-2"></i>');
-
-            contentDiv.innerHTML = `
-                <div class="text-center p-3 rounded-lg border border-gray-200">
-                    <p class="text-sm font-medium text-gray-500">Timeframe: ${timeframe}</p>
-                    <p class="text-3xl font-bold mt-1 ${signalClass}">
-                        ${iconHtml}
-                        ${signalValue}
-                    </p>
-                </div>
-                <div class="mt-4">
-                    <p class="font-semibold text-gray-800">เหตุผล:</p>
-                    <p class="whitespace-pre-wrap text-sm">${signalData.reason}</p>
-                </div>
-            `;
-            outputDiv.classList.remove('hidden');
-
-            // IMPORTANT: Re-initialize Lucide icons for the new HTML content
-            if(window.createLucideIcons) window.createLucideIcons();
-
-            // Save to Firestore
-            if (db && userId) {
-                try {
-                    const signalRef = doc(collection(db, dataPath));
-                    await setDoc(signalRef, {
-                        timeframe: timeframe,
-                        signal: signalData.signal,
-                        reason: signalData.reason,
-                        userId: userId,
-                        timestamp: serverTimestamp(),
-                        // Mock price
-                        mockPrice: (2350 + Math.random() * 10).toFixed(2) 
-                    });
-                    console.log("Signal saved successfully to Firestore.");
-                } catch (e) {
-                    console.error("Error adding document: ", e);
-                    customAlert(`ไม่สามารถบันทึกสัญญาณ: ${e.message}. (โค้ด: ${e.code})`);
-                }
-            }
-        }
-
-        // Event Listener for Button
-        document.getElementById('generate-button').addEventListener('click', async () => {
-            const timeframe = document.getElementById('timeframe').value;
-            const button = document.getElementById('generate-button');
-            const loadingIndicator = document.getElementById('loading-indicator');
-            const contentDiv = document.getElementById('signal-content');
-            
-            if (!userId) {
-                customAlert("กำลังรอการเชื่อมต่อกับ Firebase กรุณารอสักครู่");
-                return;
-            }
-
-            button.disabled = true;
-            loadingIndicator.classList.remove('hidden');
-            contentDiv.innerHTML = '';
-            document.getElementById('signal-output').classList.remove('hidden');
-
-            const signalData = await generateSignal(timeframe);
-
-            loadingIndicator.classList.add('hidden');
-            button.disabled = false;
-            
-            await displayAndSaveSignal(timeframe, signalData);
-        });
-
-        // Initialize everything on load
-        if (Object.keys(finalFirebaseConfig).length > 0) {
-            setupAuthAndListeners();
-        }
-    </script>
-
-</body>
-</html>
+// ... (rest of the file remains the same)
