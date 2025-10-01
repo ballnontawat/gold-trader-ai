@@ -180,7 +180,7 @@
     <script type="module">
         // Gemini API configuration
         const MODEL_NAME = "gemini-2.5-flash-preview-05-20";
-        // *** KEY INSERTED HERE ***
+        // API Key INSERTED HERE
         const apiKey = "AIzaSyD1a62baK2DTiOjtRrRasFuPgGEvOSNPS8"; 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
 
@@ -200,7 +200,7 @@
         const signalTP = document.getElementById('signalTP');
         const signalSL = document.getElementById('signalSL');
         const signalReason = document.getElementById('signalReason');
-        const signalTimeframe = document.getElementById('timeframeSelect');
+        const timeframeSelect = document.getElementById('timeframeSelect');
 
         const sourceContainer = document.getElementById('sourceContainer');
         const sourceList = document.getElementById('sourceList');
@@ -286,7 +286,8 @@
                 systemInstruction: {
                     parts: [{ text: systemPrompt }]
                 },
-                config: {
+                // FIX: Use 'generationConfig' instead of 'config'
+                generationConfig: {
                     temperature: 0.1
                 }
             };
@@ -426,7 +427,8 @@
                 systemInstruction: {
                     parts: [{ text: systemPrompt }]
                 },
-                config: {
+                // FIX: Use 'generationConfig' instead of 'config'
+                generationConfig: {
                     temperature: 0.2
                 }
             };
