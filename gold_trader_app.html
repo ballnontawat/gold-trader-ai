@@ -1,498 +1,550 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gold Trading AI (XAUUSD)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7fafc;
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gold Trading AI (XAUUSD)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fafc;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+        }
+        .signal-buy {
+            color: #059669; /* emerald-600 */
+            font-weight: 700;
+        }
+        .signal-sell {
+            color: #ef4444; /* red-500 */
+            font-weight: 700;
+        }
+        /* NEW: Custom classes for large signal display */
+        .buy-signal { 
+            background-color: #059669; /* emerald-600 */
         }
-        .card {
-            background-color: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-            padding: 1.5rem;
+        .sell-signal { 
+            background-color: #ef4444; /* red-500 */
         }
-        .signal-buy {
-            color: #059669; /* emerald-600 */
-            font-weight: 700;
+        .wait-signal { 
+            background-color: #9ca3af; /* gray-400 */
+            color: #1f2937; /* dark text for contrast */
         }
-        .signal-sell {
-            color: #ef4444; /* red-500 */
-            font-weight: 700;
-        }
-        .loader {
-            border-top-color: #3b82f6;
-            -webkit-animation: spin 1s ease-in-out infinite;
-            animation: spin 1s ease-in-out infinite;
-        }
-        @-webkit-keyframes spin {
-            0% { -webkit-transform: rotate(0deg); }
-            100% { -webkit-transform: rotate(360deg); }
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .history-item {
-            border: 1px solid #e5e7eb;
-            padding: 0.75rem;
-            border-radius: 8px;
-            background-color: #f9fafb;
-        }
-    </style>
-    <!-- Lucide Icons Global Import (Final Check) -->
-    <script type="module">
-        // Ensuring all imported icons use the correct PascalCase/Standard format.
-        import { createIcons, Search, Zap, TrendingUp, TrendingDown, Timer, Layers } from 'https://unpkg.com/lucide@latest';
-        window.createLucideIcons = () => createIcons({ 
-            // The object keys here must match the imported names
-            icons: { Search, Zap, TrendingUp, TrendingDown, Timer, Layers } 
-        });
-    </script>
+        .loader {
+            border-top-color: #3b82f6;
+            -webkit-animation: spin 1s ease-in-out infinite;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @-webkit-keyframes spin {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .history-item {
+            border: 1px solid #e5e7eb;
+            padding: 0.75rem;
+            border-radius: 8px;
+            background-color: #f9fafb;
+        }
+    </style>
+        <script type="module">
+        // Ensuring all imported icons use the correct PascalCase/Standard format.
+        import { createIcons, Search, Zap, TrendingUp, TrendingDown, Timer, Layers } from 'https://unpkg.com/lucide@latest';
+        window.createLucideIcons = () => createIcons({ 
+            // The object keys here must match the imported names
+            icons: { Search, Zap, TrendingUp, TrendingDown, Timer, Layers } 
+        });
+    </script>
 </head>
 <body class="p-4 md:p-8 min-h-screen bg-gray-100">
 
-    <div class="max-w-4xl mx-auto">
-        <header class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 flex items-center justify-center">
-                <i data-lucide="zap" class="w-6 h-6 mr-2 text-yellow-500"></i>
-                Gold Trader AI (XAUUSD)
-            </h1>
-            <p class="text-gray-600 mt-1">วิเคราะห์ตลาดทองคำด้วย Gemini</p>
-        </header>
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 flex items-center justify-center">
+                <i data-lucide="zap" class="w-6 h-6 mr-2 text-yellow-500"></i>
+                Gold Trader AI (XAUUSD)
+            </h1>
+            <p class="text-gray-600 mt-1">วิเคราะห์ตลาดทองคำด้วย Gemini</p>
+        </header>
 
-        <!-- Configuration -->
-        <div id="config-settings" class="card mb-8">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">การตั้งค่าและการเข้าสู่ระบบ</h2>
-            <div id="auth-status" class="text-sm text-center p-3 rounded-lg border">
-                <p id="loading-msg" class="text-blue-500">กำลังเชื่อมต่อกับ Firebase...</p>
-                <p id="user-info" class="hidden text-gray-700">User ID: <span id="user-id-display" class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded"></span></p>
-            </div>
-            <p id="api-key-warning" class="mt-4 text-center text-red-500 text-sm hidden">
-                ⚠️ โปรดกำหนดค่า __gemini_api_key ในโค้ดเพื่อให้ AI ทำงานได้!
-            </p>
-        </div>
+                <div id="config-settings" class="card mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">การตั้งค่าและการเข้าสู่ระบบ</h2>
+            <div id="auth-status" class="text-sm text-center p-3 rounded-lg border">
+                <p id="loading-msg" class="text-blue-500">กำลังเชื่อมต่อกับ Firebase...</p>
+                <p id="user-info" class="hidden text-gray-700">User ID: <span id="user-id-display" class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded"></span></p>
+            </div>
+            <p id="api-key-warning" class="mt-4 text-center text-red-500 text-sm hidden">
+                ⚠️ โปรดกำหนดค่า **USER_GEMINI_API_KEY** ในโค้ดเพื่อให้ AI ทำงานได้!
+            </p>
+        </div>
 
-        <!-- Signal Generation -->
-        <div id="generator-card" class="card mb-8">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">สร้างสัญญาณเทรด</h2>
+                <div id="generator-card" class="card mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">สร้างสัญญาณเทรด</h2>
 
-            <div class="space-y-4">
-                <div>
-                    <label for="timeframe" class="block text-sm font-medium text-gray-700">Timeframe:</label>
-                    <select id="timeframe" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
-                        <option value="M5">M5 (5 นาที)</option>
-                        <option value="M15">M15 (15 นาที)</option>
-                        <option value="H1" selected>H1 (1 ชั่วโมง)</option>
-                        <option value="H4">H4 (4 ชั่วโมง)</option>
-                        <option value="D1">D1 (1 วัน)</option>
-                    </select>
-                </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="timeframe" class="block text-sm font-medium text-gray-700">Timeframe:</label>
+                    <select id="timeframe" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
+                        <option value="M5">M5 (5 นาที)</option>
+                        <option value="M15">M15 (15 นาที)</option>
+                        <option value="H1" selected>H1 (1 ชั่วโมง)</option>
+                        <option value="H4">H4 (4 ชั่วโมง)</option>
+                        <option value="D1">D1 (1 วัน)</option>
+                    </select>
+                </div>
 
-                <button id="generate-button" onclick="generateSignal()" class="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition ease-in-out duration-150">
-                    <i data-lucide="search" class="w-5 h-5 mr-2"></i>
-                    สร้างสัญญาณ XAUUSD
-                </button>
-            </div>
+                <button id="generate-button" onclick="generateSignal()" class="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition ease-in-out duration-150">
+                    <i data-lucide="search" class="w-5 h-5 mr-2"></i>
+                    สร้างสัญญาณ XAUUSD
+                </button>
+            </div>
 
-            <div id="signal-output" class="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50 hidden">
-                <p class="text-lg font-semibold mb-2 text-gray-800">ผลการวิเคราะห์:</p>
-                <div id="loading-indicator" class="flex items-center justify-center space-x-2 hidden">
-                    <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-6 w-6"></div>
-                    <span class="text-blue-500">กำลังเรียกใช้ AI...</span>
-                </div>
-                <div id="signal-content" class="text-gray-700 space-y-3">
-                    <!-- AI generated content will be injected here -->
-                </div>
-            </div>
-        </div>
+            <div id="signal-output" class="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50 hidden">
+                <p class="text-lg font-semibold mb-2 text-gray-800">ผลการวิเคราะห์:</p>
+                <div id="loading-indicator" class="flex items-center justify-center space-x-2 hidden">
+                    <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-6 w-6"></div>
+                    <span class="text-blue-500">กำลังเรียกใช้ AI...</span>
+                </div>
+                
+                                <div id="signal-content" class="text-gray-700 space-y-3">
+                    <div class="text-center p-3 rounded-lg shadow-inner">
+                        <p class="text-sm font-medium text-gray-500" id="signalTimeframe">กรอบเวลา: H1</p>
+                        <span id="signalDirection" class="text-2xl font-black mt-1 p-1 rounded wait-signal text-white">รอ (WAIT)</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 text-center text-sm font-medium">
+                        <div class="p-2 bg-white rounded-lg border">
+                            <p class="text-gray-500">Entry</p>
+                            <p id="signalEntry" class="font-bold text-gray-800">-</p>
+                        </div>
+                        <div class="p-2 bg-white rounded-lg border border-green-300">
+                            <p class="text-gray-500">Take Profit (TP)</p>
+                            <p id="signalTP" class="font-bold text-green-600">-</p>
+                        </div>
+                        <div class="p-2 bg-white rounded-lg border border-red-300">
+                            <p class="text-gray-500">Stop Loss (SL)</p>
+                            <p id="signalSL" class="font-bold text-red-600">-</p>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-gray-800">เหตุผลการวิเคราะห์:</p>
+                        <p id="signalReason" class="text-sm text-gray-600 italic mt-1">เหตุผลจะปรากฏที่นี่หลังจาก AI วิเคราะห์</p>
+                    </div>
+                </div>
+                            </div>
+        </div>
 
-        <!-- Performance Tracking -->
-        <div id="performance-card" class="card mb-8">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">การติดตามประสิทธิภาพ (รวม)</h2>
-            <div class="grid grid-cols-2 gap-4 text-center">
-                <div class="p-4 bg-blue-50 rounded-lg">
-                    <p class="text-2xl font-bold text-blue-600" id="signal-count-display">0</p>
-                    <p class="text-sm text-gray-500">จำนวนสัญญาณที่สร้าง</p>
-                </div>
-                <div class="p-4 bg-purple-50 rounded-lg">
-                    <p class="text-2xl font-bold text-purple-600" id="win-rate-display">0%</p>
-                    <p class="text-sm text-gray-500">Win Rate Mock (จำลอง)</p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- NEW: Signal History Display -->
-        <div id="history-card" class="card mb-8">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">ประวัติสัญญาณล่าสุด (20 รายการ)</h2>
-            <div id="signal-history-container" class="space-y-3">
-                <p id="loading-history" class="text-center text-gray-500">กำลังโหลดประวัติสัญญาณ...</p>
-            </div>
-        </div>
+                <div id="performance-card" class="card mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">การติดตามประสิทธิภาพ (รวม)</h2>
+            <div class="grid grid-cols-2 gap-4 text-center">
+                <div class="p-4 bg-blue-50 rounded-lg">
+                    <p class="text-2xl font-bold text-blue-600" id="signal-count-display">0</p>
+                    <p class="text-sm text-gray-500">จำนวนสัญญาณที่สร้าง</p>
+                </div>
+                <div class="p-4 bg-purple-50 rounded-lg">
+                    <p class="text-2xl font-bold text-purple-600" id="win-rate-display">0%</p>
+                    <p class="text-sm text-gray-500">Win Rate Mock (จำลอง)</p>
+                </div>
+            </div>
+        </div>
+        
+                <div id="history-card" class="card mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">ประวัติสัญญาณล่าสุด (20 รายการ)</h2>
+            <div id="signal-history-container" class="space-y-3">
+                <p id="loading-history" class="text-center text-gray-500">กำลังโหลดประวัติสัญญาณ...</p>
+            </div>
+        </div>
 
-        <!-- Message Box for Alert replacement -->
-        <div id="custom-alert" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
-            <div class="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full">
-                <h3 class="text-lg font-bold mb-3 text-red-600">ข้อผิดพลาด</h3>
-                <p id="alert-message" class="text-gray-700"></p>
-                <button onclick="document.getElementById('custom-alert').classList.add('hidden')" class="mt-4 w-full py-2 px-4 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition">ตกลง</button>
-            </div>
-        </div>
+                <div id="custom-alert" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full">
+                <h3 class="text-lg font-bold mb-3 text-red-600">ข้อผิดพลาด</h3>
+                <p id="alert-message" class="text-gray-700"></p>
+                <button onclick="document.getElementById('custom-alert').classList.add('hidden')" class="mt-4 w-full py-2 px-4 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition">ตกลง</button>
+            </div>
+        </div>
 
-    </div>
+    </div>
 
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc, 
-            setDoc, 
-            onSnapshot, 
-            collection, 
-            query, 
-            orderBy, 
-            limit, 
-            serverTimestamp 
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            onSnapshot, 
+            collection, 
+            query, 
+            orderBy, 
+            limit, 
+            serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global Firebase Configuration and Tools
-        const appId = 'default-app-id'; 
-        let db;
-        let auth;
-        let userId = null;
+        // Global Firebase Configuration and Tools
+        const appId = 'default-app-id'; 
+        let db;
+        let auth;
+        let userId = null;
 
-        // --- START: Firebase Config (User-provided) ---
-        // Project: config-key-91147
-        const USER_FIREBASE_CONFIG = {
-             apiKey: "AIzaSyBtHWF0G-p_A6nmqp2vs-X8sYeJcgw31C4",
-             authDomain: "config-key-91147.firebaseapp.com",
-             projectId: "config-key-91147",
-             storageBucket: "config-key-91147.firebasestorage.app",
-             messagingSenderId: "829185427257",
-             appId: "1:829185427257:web:884171fb68fd8c2082cae8",
-             measurementId: "G-P70JTKGV13"
-        };
-        const USER_GEMINI_API_KEY = "AIzaSyD1a62baK2DTiOjtRrRasFuPgGEvOSNPS8";
-        // --- END: Firebase Config (User-provided) ---
+        // --- START: Firebase Config (User-provided) ---
+        // Project: config-key-91147
+        const USER_FIREBASE_CONFIG = {
+             apiKey: "AIzaSyBtHWF0G-p_A6nmqp2vs-X8sYeJcgw31C4",
+             authDomain: "config-key-91147.firebaseapp.com",
+             projectId: "config-key-91147",
+             storageBucket: "config-key-91147.firebasestorage.app",
+             messagingSenderId: "829185427257",
+             appId: "1:829185427257:web:884171fb68fd8c2082cae8",
+             measurementId: "G-P70JTKGV13"
+        };
+        const USER_GEMINI_API_KEY = "AIzaSyD1a62baK2DTiOjtRrRasFuPgGEvOSNPS8";
+        // --- END: Firebase Config (User-provided) ---
 
-        let finalFirebaseConfig = USER_FIREBASE_CONFIG;
-        let finalApiKey = USER_GEMINI_API_KEY;
+        let finalFirebaseConfig = USER_FIREBASE_CONFIG;
+        let finalApiKey = USER_GEMINI_API_KEY;
 
-        if (Object.keys(finalFirebaseConfig).length > 0) {
-            try {
-                const app = initializeApp(finalFirebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                setLogLevel('Debug');
-            } catch (error) {
-                 console.error("Firebase Init Error:", error);
-                 customAlert(`ข้อผิดพลาด Firebase Init: ${error.message}. กรุณาตรวจสอบ Config Key`);
-            }
-        } else {
-            customAlert("ไม่พบการตั้งค่า Firebase กรุณาตรวจสอบโค้ด");
-        }
+        // Custom Alert Function (Replaces standard window.alert)
+        function customAlert(message) {
+            document.getElementById('alert-message').textContent = message;
+            document.getElementById('custom-alert').classList.remove('hidden');
+        }
+        window.customAlert = customAlert; // Make it globally accessible for other parts of the script
 
-        const dataPath = `/artifacts/${finalFirebaseConfig.projectId || appId}/public/data/gold_signals`;
+        if (Object.keys(finalFirebaseConfig).length > 0) {
+            try {
+                const app = initializeApp(finalFirebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('Debug');
+            } catch (error) {
+                 console.error("Firebase Init Error:", error);
+                 customAlert(`ข้อผิดพลาด Firebase Init: ${error.message}. กรุณาตรวจสอบ Config Key`);
+            }
+        } else {
+            customAlert("ไม่พบการตั้งค่า Firebase กรุณาตรวจสอบโค้ด");
+        }
 
-
-        // Authentication and Initialization Setup
-        async function setupAuthAndListeners() {
-            const loadingMsg = document.getElementById('loading-msg');
-            const userInfo = document.getElementById('user-info');
-            const userIdDisplay = document.getElementById('user-id-display');
-            
-            // Check for API Key
-            if (!finalApiKey) {
-                document.getElementById('api-key-warning').classList.remove('hidden');
-            }
-
-            // Attempt Sign-in
-            try {
-                await signInAnonymously(auth);
-            } catch (error) {
-                 console.error("Anonymous Auth Failed:", error);
-                 loadingMsg.textContent = `ข้อผิดพลาดการเข้าสู่ระบบ: ${error.code}. โปรดเปิด Anonymous Auth ใน Firebase Console`;
-                 loadingMsg.classList.remove('text-blue-500');
-                 loadingMsg.classList.add('text-red-500');
-            }
-
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    userId = user.uid;
-                    loadingMsg.classList.add('hidden');
-                    userIdDisplay.textContent = userId;
-                    userInfo.classList.remove('hidden');
-                    
-                    // Start listening to data once authenticated
-                    if (db) {
-                        setupPerformanceListener(db, userId);
-                    }
-                }
-            });
-            
-            // Re-initialize icons immediately after the HTML structure is loaded
-            if(window.createLucideIcons) window.createLucideIcons();
-        }
-
-        // --- FIRESTORE FUNCTIONS ---
-        function getSignalCollectionRef() {
-            return collection(db, dataPath);
-        }
-
-        async function saveSignalToDB(signalData) {
-            if (!db || !userId) {
-                console.error("Cannot save signal: DB or User ID not ready.");
-                return;
-            }
-
-            const docId = `${Date.now()}-${userId.substring(0, 8)}`;
-            
-            try {
-                await setDoc(doc(getSignalCollectionRef(), docId), {
-                    ...signalData,
-                    userId: userId,
-                    timestamp: serverTimestamp(),
-                });
-            } catch (error) {
-                console.error("Error saving signal to Firestore:", error);
-                customAlert(`บันทึกสถิติล้มเหลว: ${error.message}. โปรดตรวจสอบ Firebase Security Rules.`);
-            }
-        }
-
-        // --- UPDATED: Real-time Listener for Performance and History (Limit 20) ---
-        function setupPerformanceListener(db, currentUserId) {
-            const signalCountElement = document.getElementById('signal-count-display');
-            const winRateElement = document.getElementById('win-rate-display');
-            const historyContainer = document.getElementById('signal-history-container');
-            
-            // Query for all public signals (needed for overall performance stats and history)
-            const q = query(
-                collection(db, dataPath),
-                orderBy('timestamp', 'desc') 
-            );
-            
-            const loadingHistoryElement = document.getElementById('loading-history');
+        const dataPath = `/artifacts/${finalFirebaseConfig.projectId || appId}/public/data/gold_signals`;
 
 
-            onSnapshot(q, (snapshot) => {
-                let totalSignals = 0;
-                let winCount = 0;
-                let historyHTML = '';
-                
-                // Clear loading message
-                if (loadingHistoryElement) {
-                    loadingHistoryElement.style.display = 'none';
-                }
+        // Authentication and Initialization Setup
+        async function setupAuthAndListeners() {
+            const loadingMsg = document.getElementById('loading-msg');
+            const userInfo = document.getElementById('user-info');
+            const userIdDisplay = document.getElementById('user-id-display');
+            
+            // Check for API Key
+            if (!finalApiKey) {
+                document.getElementById('api-key-warning').classList.remove('hidden');
+            }
 
-                // --- 1. Aggregate Statistics and History HTML Generation ---
-                snapshot.forEach((doc, index) => {
-                    const data = doc.data();
-                    
-                    totalSignals++;
-                    // Mock Win Rate Logic
-                    if (data.signal && (totalSignals % 2) === 0) winCount++; 
-                    
+            // Attempt Sign-in
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                 console.error("Anonymous Auth Failed:", error);
+                 loadingMsg.textContent = `ข้อผิดพลาดการเข้าสู่ระบบ: ${error.code}. โปรดเปิด Anonymous Auth ใน Firebase Console`;
+                 loadingMsg.classList.remove('text-blue-500');
+                 loadingMsg.classList.add('text-red-500');
+            }
 
-                    // 1.2 Generate HTML for History (Only the first 20 documents)
-                    if (index < 20) {
-                        // CRITICAL: try...catch added here to skip documents with bad/incomplete data
-                        try {
-                            const signalValue = data.signal || 'N/A';
-                            const signalClass = signalValue === 'Buy' ? 'signal-buy' : (signalValue === 'Sell' ? 'signal-sell' : 'text-gray-700');
-                            
-                            // Robust Timestamp Check
-                            const time = data.timestamp && typeof data.timestamp.toDate === 'function' ? 
-                                new Date(data.timestamp.toDate()).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' }) : 'N/A';
-                            
-                            // Clean up reason text for display
-                            const reasonText = (data.reason || 'No reason provided').split('\n')[0].substring(0, 150) + '...';
-                            
-                            // Ensure data-lucide attributes are correctly named
-                            const iconHtml = signalValue === 'Buy' ? 
-                                '<i data-lucide="trending-up" class="w-5 h-5 inline mr-1"></i>' : 
-                                (signalValue === 'Sell' ? 
-                                '<i data-lucide="trending-down" class="w-5 h-5 inline mr-1"></i>' : 
-                                '<i data-lucide="layers" class="w-5 h-5 inline mr-1"></i>');
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    loadingMsg.classList.add('hidden');
+                    userIdDisplay.textContent = userId;
+                    userInfo.classList.remove('hidden');
+                    
+                    // Start listening to data once authenticated
+                    if (db) {
+                        setupPerformanceListener(db, userId);
+                    }
+                }
+            });
+            
+            // Re-initialize icons immediately after the HTML structure is loaded
+            if(window.createLucideIcons) window.createLucideIcons();
+        }
+
+        // --- FIRESTORE FUNCTIONS ---
+        function getSignalCollectionRef() {
+            return collection(db, dataPath);
+        }
+
+        async function saveSignalToDB(signalData) {
+            if (!db || !userId) {
+                console.error("Cannot save signal: DB or User ID not ready.");
+                return;
+            }
+
+            const docId = `${Date.now()}-${userId.substring(0, 8)}`;
+            
+            try {
+                await setDoc(doc(getSignalCollectionRef(), docId), {
+                    ...signalData,
+                    userId: userId,
+                    timestamp: serverTimestamp(),
+                });
+            } catch (error) {
+                console.error("Error saving signal to Firestore:", error);
+                customAlert(`บันทึกสถิติล้มเหลว: ${error.message}. โปรดตรวจสอบ Firebase Security Rules.`);
+            }
+        }
+
+        // --- UPDATED: Real-time Listener for Performance and History (Limit 20) ---
+        function setupPerformanceListener(db, currentUserId) {
+            const signalCountElement = document.getElementById('signal-count-display');
+            const winRateElement = document.getElementById('win-rate-display');
+            const historyContainer = document.getElementById('signal-history-container');
+            
+            // Query for all public signals (needed for overall performance stats and history)
+            const q = query(
+                collection(db, dataPath),
+                orderBy('timestamp', 'desc') 
+            );
+            
+            const loadingHistoryElement = document.getElementById('loading-history');
 
 
-                            historyHTML += `
-                                <div class="history-item">
-                                    <div class="flex items-center justify-between text-sm">
-                                        <div class="flex items-center space-x-2">
-                                            <i data-lucide="timer" class="w-4 h-4 text-gray-500"></i>
-                                            <span class="text-gray-500">${time}</span>
-                                        </div>
-                                        <span class="font-semibold text-xs px-2 py-0.5 rounded-full bg-gray-200">${data.timeframe || 'N/A'}</span>
-                                    </div>
-                                    <div class="mt-2">
-                                        <p class="text-xl ${signalClass}">
-                                            ${iconHtml}
-                                            ${signalValue}
-                                        </p>
-                                        <p class="text-xs text-gray-600 mt-1">${reasonText}</p>
-                                    </div>
-                                </div>
-                            `;
-                        } catch (renderingError) {
-                            console.error(`Error rendering document at index ${index} (ID: ${doc.id}):`, renderingError);
-                            // If rendering fails, we skip this item and continue the loop
+            onSnapshot(q, (snapshot) => {
+                let totalSignals = 0;
+                let winCount = 0;
+                let historyHTML = '';
+                
+                // Clear loading message
+                if (loadingHistoryElement) {
+                    loadingHistoryElement.style.display = 'none';
+                }
+
+                // --- 1. Aggregate Statistics and History HTML Generation ---
+                snapshot.forEach((doc, index) => {
+                    const data = doc.data();
+                    
+                    totalSignals++;
+                    // Mock Win Rate Logic
+                    // Only count 'Buy' or 'Sell' as tradable signals
+                        if (data.signal && (data.signal.toUpperCase().includes('BUY') || data.signal.toUpperCase().includes('SELL'))) {
+                            // Mock win: Alternate signals for a simple mockup.
+                            if ((totalSignals % 2) === 0) winCount++; 
                         }
-                    }
-                });
+                    
 
-                // --- 2. Update UI Elements ---
-                
-                // 2.1 Update Performance Metrics
-                signalCountElement.textContent = totalSignals;
-                let winRate = totalSignals > 0 ? ((winCount / totalSignals) * 100).toFixed(1) : 0;
-                winRateElement.textContent = `${winRate}%`;
-                
-                // 2.2 Update History Display
-                historyContainer.innerHTML = historyHTML || '<p class="text-center text-gray-500 p-4">ยังไม่มีสัญญาณถูกสร้าง</p>';
-                
-                // IMPORTANT: Re-initialize Lucide icons for the new HTML content
-                if(window.createLucideIcons) window.createLucideIcons();
+                    // 1.2 Generate HTML for History (Only the first 20 documents)
+                    if (index < 20) {
+                        // CRITICAL: try...catch added here to skip documents with bad/incomplete data
+                        try {
+                            const signalValue = data.signal || 'N/A';
+                            const signalClass = signalValue.toUpperCase().includes('BUY') ? 'signal-buy' : (signalValue.toUpperCase().includes('SELL') ? 'signal-sell' : 'text-gray-700');
+                            
+                            // Robust Timestamp Check
+                            const time = data.timestamp && typeof data.timestamp.toDate === 'function' ? 
+                                new Date(data.timestamp.toDate()).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' }) : 'N/A';
+                            
+                            // Clean up reason text for display
+                            const reasonText = (data.reason || 'No reason provided').split('\n')[0].substring(0, 150) + '...';
+                            
+                            // Ensure data-lucide attributes are correctly named
+                            const iconHtml = signalValue.toUpperCase().includes('BUY') ? 
+                                '<i data-lucide="trending-up" class="w-5 h-5 inline mr-1"></i>' : 
+                                (signalValue.toUpperCase().includes('SELL') ? 
+                                '<i data-lucide="trending-down" class="w-5 h-5 inline mr-1"></i>' : 
+                                '<i data-lucide="layers" class="w-5 h-5 inline mr-1"></i>');
 
 
-            }, (error) => {
-                console.error("Firestore Listener Error:", error);
-                customAlert(`ข้อผิดพลาดในการดึงข้อมูล: ${error.message}`);
-                if (loadingHistoryElement) {
-                    loadingHistoryElement.textContent = 'ไม่สามารถโหลดประวัติได้';
-                }
-            });
-        }
+                            historyHTML += `
+                                <div class="history-item">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center space-x-2">
+                                            <i data-lucide="timer" class="w-4 h-4 text-gray-500"></i>
+                                            <span class="text-gray-500">${time}</span>
+                                        </div>
+                                        <span class="font-semibold text-xs px-2 py-0.5 rounded-full bg-gray-200">${data.timeframe || 'N/A'}</span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <p class="text-xl ${signalClass}">
+                                            ${iconHtml}
+                                            ${signalValue}
+                                        </p>
+                                        <p class="text-xs text-gray-600 mt-1">${reasonText}</p>
+                                    </div>
+                                </div>
+                            `;
+                        } catch (renderingError) {
+                            console.error(`Error rendering document at index ${index} (ID: ${doc.id}):`, renderingError);
+                            // If rendering fails, we skip this item and continue the loop
+                        }
+                    }
+                });
 
-        // --- GEMINI API CALLS ---
+                // --- 2. Update UI Elements ---
+                
+                // 2.1 Update Performance Metrics
+                signalCountElement.textContent = totalSignals;
+                let winRate = totalSignals > 0 ? ((winCount / totalSignals) * 100).toFixed(1) : 0;
+                winRateElement.textContent = `${winRate}%`;
+                
+                // 2.2 Update History Display
+                historyContainer.innerHTML = historyHTML || '<p class="text-center text-gray-500 p-4">ยังไม่มีสัญญาณถูกสร้าง</p>';
+                
+                // IMPORTANT: Re-initialize Lucide icons for the new HTML content
+                if(window.createLucideIcons) window.createLucideIcons();
+
+
+            }, (error) => {
+                console.error("Firestore Listener Error:", error);
+                customAlert(`ข้อผิดพลาดในการดึงข้อมูล: ${error.message}`);
+                if (loadingHistoryElement) {
+                    loadingHistoryElement.textContent = 'ไม่สามารถโหลดประวัติได้';
+                }
+            });
+        }
+
+        // --- GEMINI API CALLS ---
+        
+        const MODEL_NAME = "gemini-2.5-flash-preview-05-20";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${finalApiKey}`;
+
+        const signalCard = document.getElementById('signal-output');
+        const generateSignalBtn = document.getElementById('generate-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        // Re-querying elements here to match the new structure/names (though they were already defined above)
+        // It's safer to define them globally but since they are inside the module, we'll redefine them for clarity inside the function below.
         
-        const MODEL_NAME = "gemini-2.5-flash-preview-05-20";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${finalApiKey}`;
-
-        const signalCard = document.getElementById('signal-output');
-        const generateSignalBtn = document.getElementById('generate-button');
-        const loadingIndicator = document.getElementById('loading-indicator');
-        const signalDirection = document.getElementById('signalDirection');
-        const signalEntry = document.getElementById('signalEntry');
-        const signalTP = document.getElementById('signalTP');
-        const signalSL = document.getElementById('signalSL');
-        const signalReason = document.getElementById('signalReason');
-        const timeframeSelect = document.getElementById('timeframe');
-        const errorMessage = document.getElementById('custom-alert'); // Note: Reusing the custom alert for errors
-
-        // Re-implementing fetchWithBackoff here to ensure it's in the final file
-        async function fetchWithBackoff(url, options, maxRetries = 5) {
-             for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (response.ok) { return response; } 
-                    else if (response.status === 429 || response.status >= 500) {
-                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                        continue;
-                    } else {
-                        const errorData = await response.json();
-                        throw new Error(`API Error ${response.status}: ${errorData.error.message}`);
-                    }
-                } catch (error) {
-                    if (i === maxRetries - 1) { throw error; }
-                }
-            }
-        }
+        // Re-implementing fetchWithBackoff here to ensure it's in the final file
+        async function fetchWithBackoff(url, options, maxRetries = 5) {
+             for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) { return response; } 
+                    else if (response.status === 429 || response.status >= 500) {
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    } else {
+                        const errorData = await response.json();
+                        throw new Error(`API Error ${response.status}: ${errorData.error.message}`);
+                    }
+                } catch (error) {
+                    if (i === maxRetries - 1) { throw error; }
+                }
+            }
+        }
 
 
-        window.generateSignal = async function() {
-            if (!finalApiKey) { customAlert("โปรดใส่ Gemini API Key ของคุณในโค้ด"); return; }
-            signalCard.classList.add('hidden');
-            customAlert.classList.add('hidden');
+        window.generateSignal = async function() {
+            // Get the elements INSIDE the function as they are needed here
+            const signalDirection = document.getElementById('signalDirection');
+            const signalEntry = document.getElementById('signalEntry');
+            const signalTP = document.getElementById('signalTP');
+            const signalSL = document.getElementById('signalSL');
+            const signalReason = document.getElementById('signalReason');
+            const timeframeSelect = document.getElementById('timeframe');
             
-            const selectedTimeframe = timeframeSelect.value;
-            document.getElementById('signalTimeframe').textContent = `กรอบเวลา: ${selectedTimeframe}`;
-            
-            generateSignalBtn.disabled = true;
-            loadingIndicator.classList.remove('hidden');
+            if (!finalApiKey) { customAlert("โปรดใส่ Gemini API Key ของคุณในโค้ด"); return; }
+            signalCard.classList.remove('hidden'); // Show the output card
+            document.getElementById('custom-alert').classList.add('hidden');
+            
+            const selectedTimeframe = timeframeSelect.value;
+            document.getElementById('signalTimeframe').textContent = `กรอบเวลา: ${selectedTimeframe}`;
+            
+            generateSignalBtn.disabled = true;
+            loadingIndicator.classList.remove('hidden');
 
-            const systemPrompt = `Act as a highly reliable gold trading signal provider for XAUUSD. Provide a concise, actionable signal based on the ${selectedTimeframe} timeframe. Your response must be in Thai and must strictly adhere to the following 6-line, easily parsable format:
+            const systemPrompt = `Act as a highly reliable gold trading signal provider for XAUUSD. Provide a concise, actionable signal based on the ${selectedTimeframe} timeframe. Your response must be in Thai and must strictly adhere to the following 6-line, easily parsable format:
 SIGNAL: [ซื้อ/ขาย/รอ (BUY/SELL/WAIT)]
 TIMEFRAME: [กรอบเวลา เช่น H4/Daily]
 ENTRY: [ราคาในหน่วย USD เช่น 2350.50]
 TP: [ราคาในหน่วย USD เช่น 2380.00]
 SL: [ราคาในหน่วย USD เช่น 2335.50]
 REASON: [1-2 ประโยควิเคราะห์ตามข้อมูลเรียลไทม์]
-            `;
-            const userQuery = `โปรดให้สัญญาณเทรดทองคำ (XAUUSD) ล่าสุดสำหรับกรอบเวลา ${selectedTimeframe} พร้อมราคาเข้า, TP, SL, และเหตุผลการวิเคราะห์ โดยใช้ข้อมูลเรียลไทม์`;
+            `;
+            const userQuery = `โปรดให้สัญญาณเทรดทองคำ (XAUUSD) ล่าสุดสำหรับกรอบเวลา ${selectedTimeframe} พร้อมราคาเข้า, TP, SL, และเหตุผลการวิเคราะห์ โดยใช้ข้อมูลเรียลไทม์`;
 
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                tools: [{ "google_search": {} }], // Use Google Search for grounding
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: { temperature: 0.1 }
-            };
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }], // Use Google Search for grounding
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { temperature: 0.1 }
+            };
 
-            try {
-                const response = await fetchWithBackoff(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+            try {
+                const response = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
-                const result = await response.json();
-                const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                const result = await response.json();
+                const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
-                if (!rawText) { throw new Error("ไม่สามารถสร้างสัญญาณได้ โปรดลองอีกครั้ง"); }
+                if (!rawText) { throw new Error("ไม่สามารถสร้างสัญญาณได้ โปรดลองอีกครั้ง"); }
 
-                const lines = rawText.split('\n').map(line => line.trim());
-                let signal = { DIRECTION: 'WAIT', TIMEFRAME: selectedTimeframe, ENTRY: '-', TP: '-', SL: '-', REASON: 'ไม่พบเหตุผลการวิเคราะห์ที่ชัดเจน' };
+                const lines = rawText.split('\n').map(line => line.trim());
+                let signal = { DIRECTION: 'รอ (WAIT)', TIMEFRAME: selectedTimeframe, ENTRY: '-', TP: '-', SL: '-', REASON: 'ไม่พบเหตุผลการวิเคราะห์ที่ชัดเจน' };
 
-                lines.forEach(line => {
-                    if (line.startsWith('SIGNAL:')) { signal.DIRECTION = line.split(':')[1]?.trim() || 'WAIT'; }
-                    else if (line.startsWith('ENTRY:')) { signal.ENTRY = line.split(':')[1]?.trim() || '-'; }
-                    else if (line.startsWith('TP:')) { signal.TP = line.split(':')[1]?.trim() || '-'; }
-                    else if (line.startsWith('SL:')) { signal.SL = line.split(':')[1]?.trim() || '-'; }
-                    else if (line.startsWith('REASON:')) { signal.REASON = line.substring(line.indexOf(':') + 1).trim() || signal.REASON; }
-                });
+                lines.forEach(line => {
+                    if (line.toUpperCase().startsWith('SIGNAL:')) { signal.DIRECTION = line.split(':')[1]?.trim() || 'รอ (WAIT)'; }
+                    else if (line.toUpperCase().startsWith('TIMEFRAME:')) { signal.TIMEFRAME = line.split(':')[1]?.trim() || selectedTimeframe; }
+                    else if (line.toUpperCase().startsWith('ENTRY:')) { signal.ENTRY = line.split(':')[1]?.trim() || '-'; }
+                    else if (line.toUpperCase().startsWith('TP:')) { signal.TP = line.split(':')[1]?.trim() || '-'; }
+                    else if (line.toUpperCase().startsWith('SL:')) { signal.SL = line.split(':')[1]?.trim() || '-'; }
+                    else if (line.toUpperCase().startsWith('REASON:')) { 
+                        // Use substring to get the rest of the line after the first colon
+                        const reasonPart = line.substring(line.indexOf(':') + 1).trim();
+                        signal.REASON = reasonPart || signal.REASON; 
+                    }
+                });
 
-                // Update UI
-                signalCard.classList.remove('hidden');
-                signalDirection.textContent = signal.DIRECTION;
-                if (signal.DIRECTION.includes('ซื้อ') || signal.DIRECTION.toUpperCase().includes('BUY')) { signalDirection.className = 'text-2xl font-black mt-1 p-1 rounded buy-signal text-white'; }
-                else if (signal.DIRECTION.includes('ขาย') || signal.DIRECTION.toUpperCase().includes('SELL')) { signalDirection.className = 'text-2xl font-black mt-1 p-1 rounded sell-signal text-white'; }
-                else { signalDirection.className = 'text-2xl font-black mt-1 p-1 rounded wait-signal text-dark-bg'; }
-                
-                // Display prices, ensure they are clean
-                document.getElementById('signalEntry').textContent = signal.ENTRY.replace('USD', '').trim();
-                document.getElementById('signalTP').textContent = signal.TP.replace('USD', '').trim();
-                document.getElementById('signalSL').textContent = signal.SL.replace('USD', '').trim();
-                document.getElementById('signalReason').textContent = signal.REASON;
+                // Update UI
+                signalDirection.textContent = signal.DIRECTION;
+                
+                // Set appropriate class based on signal direction
+                if (signal.DIRECTION.includes('ซื้อ') || signal.DIRECTION.toUpperCase().includes('BUY')) { 
+                    signalDirection.className = 'text-2xl font-black mt-1 p-1 rounded buy-signal text-white'; 
+                }
+                else if (signal.DIRECTION.includes('ขาย') || signal.DIRECTION.toUpperCase().includes('SELL')) { 
+                    signalDirection.className = 'text-2xl font-black mt-1 p-1 rounded sell-signal text-white'; 
+                }
+                else { 
+                    signalDirection.className = 'text-2xl font-black mt-1 p-1 rounded wait-signal text-gray-900'; // text-gray-900 for good contrast on gray-400
+                }
+                
+                // Display prices, ensure they are clean
+                signalEntry.textContent = signal.ENTRY.replace(/USD/gi, '').trim();
+                signalTP.textContent = signal.TP.replace(/USD/gi, '').trim();
+                signalSL.textContent = signal.SL.replace(/USD/gi, '').trim();
+                signalReason.textContent = signal.REASON;
 
-                // Save the signal to Firestore
-                saveSignalToDB({
-                    signal: signal.DIRECTION,
-                    timeframe: signal.TIMEFRAME,
-                    entry: signal.ENTRY.replace('USD', '').trim(),
-                    tp: signal.TP.replace('USD', '').trim(),
-                    sl: signal.SL.replace('USD', '').trim(),
-                    reason: signal.REASON
-                });
+                // Save the signal to Firestore
+                saveSignalToDB({
+                    signal: signal.DIRECTION,
+                    timeframe: signal.TIMEFRAME,
+                    entry: signal.ENTRY.replace(/USD/gi, '').trim(),
+                    tp: signal.TP.replace(/USD/gi, '').trim(),
+                    sl: signal.SL.replace(/USD/gi, '').trim(),
+                    reason: signal.REASON
+                });
 
-            } catch (error) {
-                console.error("Gemini API Call Failed (Signal):", error);
-                customAlert(error.message || "มีข้อผิดพลาดในการเชื่อมต่อหรือวิเคราะห์ข้อมูลสัญญาณ");
-            } finally {
-                generateSignalBtn.disabled = false;
-                loadingIndicator.classList.add('hidden');
-            }
-        };
+            } catch (error) {
+                console.error("Gemini API Call Failed (Signal):", error);
+                customAlert(error.message || "มีข้อผิดพลาดในการเชื่อมต่อหรือวิเคราะห์ข้อมูลสัญญาณ");
+            } finally {
+                generateSignalBtn.disabled = false;
+                loadingIndicator.classList.add('hidden');
+            }
+        };
 
-        // Initialize listeners when DOM is ready
-        document.addEventListener('DOMContentLoaded', setupAuthAndListeners);
-    </script>
+        // Initialize listeners when DOM is ready
+        document.addEventListener('DOMContentLoaded', setupAuthAndListeners);
+    </script>
 </body>
 </html>
