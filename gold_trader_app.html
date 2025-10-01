@@ -47,12 +47,12 @@
     </style>
     <!-- Lucide Icons Global Import -->
     <script type="module">
-        // FINAL FIX: Ensure ALL imported icons use the correct PascalCase.
-        // Clock, Layers, Search, Zap, TrendingUp, TrendingDown are all PascalCase.
-        import { createIcons, Search, Zap, TrendingUp, TrendingDown, Clock, Layers } from 'https://unpkg.com/lucide@latest';
+        // FINAL FIX: Ensuring all imported icons use the correct PascalCase.
+        // The issue was 'Layers' not being PascalCase in the import statement.
+        import { createIcons, Search, Zap, TrendingUp, TrendingDown, Timer, Layers } from 'https://unpkg.com/lucide@latest';
         window.createLucideIcons = () => createIcons({ 
             // The object keys here must match the imported names
-            icons: { Search, Zap, TrendingUp, TrendingDown, Clock, Layers } 
+            icons: { Search, Zap, TrendingUp, TrendingDown, Timer, Layers } 
         });
     </script>
 </head>
@@ -315,7 +315,7 @@
                                 <div class="history-item">
                                     <div class="flex items-center justify-between text-sm">
                                         <div class="flex items-center space-x-2">
-                                            <i data-lucide="clock" class="w-4 h-4 text-gray-500"></i>
+                                            <i data-lucide="timer" class="w-4 h-4 text-gray-500"></i>
                                             <span class="text-gray-500">${time}</span>
                                         </div>
                                         <span class="font-semibold text-xs px-2 py-0.5 rounded-full bg-gray-200">${data.timeframe || 'N/A'}</span>
