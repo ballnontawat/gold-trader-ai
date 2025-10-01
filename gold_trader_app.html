@@ -47,8 +47,9 @@
     </style>
     <!-- Lucide Icons Global Import -->
     <script type="module">
-        import { createIcons, Search, Zap, TrendingUp, TrendingDown, Clock, Layers } from 'https://unpkg.com/lucide@latest';
-        window.createLucideIcons = () => createIcons({ icons: { Search, Zap, TrendingUp, TrendingDown, Clock, Layers } });
+        // FIX: Changed 'TrendingUp' to 'trendingUp' (camelCase for import) to resolve the latest SyntaxError.
+        import { createIcons, search, Zap, trendingUp, trendingDown, clock, layers } from 'https://unpkg.com/lucide@latest';
+        window.createLucideIcons = () => createIcons({ icons: { search, Zap, trendingUp, trendingDown, clock, layers } });
     </script>
 </head>
 <body class="p-4 md:p-8 min-h-screen bg-gray-100">
@@ -245,6 +246,9 @@
                     // Fallback should already be handled by signInAnonymously attempt above
                 }
             });
+            
+            // Re-initialize icons immediately after the HTML structure is loaded
+            if(window.createLucideIcons) window.createLucideIcons();
         }
 
         // --- UPDATED: Real-time Listener for Performance and History (Limit 20) ---
@@ -258,6 +262,10 @@
                 collection(db, dataPath),
                 orderBy('timestamp', 'desc') 
             );
+            
+            // --- FIX for Type Error: Check if loading element exists before using 'style' ---
+            const loadingHistoryElement = document.getElementById('loading-history');
+
 
             onSnapshot(q, (snapshot) => {
                 let totalSignals = 0;
@@ -265,7 +273,9 @@
                 let historyHTML = '';
                 
                 // Clear loading message
-                document.getElementById('loading-history').style.display = 'none';
+                if (loadingHistoryElement) {
+                    loadingHistoryElement.style.display = 'none';
+                }
 
                 // --- 1. Aggregate Statistics and History HTML Generation ---
                 snapshot.forEach((doc, index) => {
@@ -329,7 +339,9 @@
             }, (error) => {
                 console.error("Firestore Listener Error:", error);
                 customAlert(`ข้อผิดพลาดในการดึงข้อมูล: ${error.message}`);
-                document.getElementById('loading-history').textContent = 'ไม่สามารถโหลดประวัติได้';
+                if (loadingHistoryElement) {
+                    loadingHistoryElement.textContent = 'ไม่สามารถโหลดประวัติได้';
+                }
             });
         }
 
